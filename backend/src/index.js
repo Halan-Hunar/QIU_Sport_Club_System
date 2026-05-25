@@ -43,8 +43,10 @@ app.use((req, _res, next) => {
 });
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
-// TODO: import and mount routes here as we build them
-// app.use('/api/auth', authLimiter, authRoutes);
+import authRoutes from './routes/auth.js';
+app.use('/api/auth', authLimiter, authRoutes);
+
+// TODO: mount as we build them
 // app.use('/api/tournaments', tournamentRoutes);
 // app.use('/api/teams', teamRoutes);
 // app.use('/api/matches', matchRoutes);
