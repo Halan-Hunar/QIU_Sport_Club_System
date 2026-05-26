@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { supabase } from '../utils/supabase.js';
+import { supabase, supabaseAdmin } from '../utils/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 
@@ -31,7 +31,7 @@ router.post('/login', async (req, res) => {
   }
 
   // Check they are actually an admin
-  const { data: profile } = await supabase
+  const { data: profile } = await supabaseAdmin
     .from('users')
     .select('role')
     .eq('id', data.user.id)
@@ -41,6 +41,35 @@ router.post('/login', async (req, res) => {
 
   res.json({
     token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    user: {
+      id: data.user.id,
+      email: data.user.email,
+      role: profile?.role,
+    },
+  });
+});
+
+// ─── POST /api/auth/refresh ───────────────────────────────────
+router.post('/refresh', async (req, res) => {
+  const { refresh_token } = req.body;
+  if (!refresh_token) return res.status(400).json({ error: 'refresh_token required' });
+
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+
+  if (error || !data.session) {
+    return res.status(401).json({ error: 'Session expired, please log in again' });
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from('users')
+    .select('role')
+    .eq('id', data.user.id)
+    .single();
+
+  res.json({
+    token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
     user: {
       id: data.user.id,
       email: data.user.email,

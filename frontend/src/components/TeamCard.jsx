@@ -22,7 +22,7 @@ export default function TeamCard({ team, isAdmin, onEdit, onDelete }) {
           >
             {team.name?.charAt(0)?.toUpperCase()}
           </div>
-          <span className="qiu-chip-primary !bg-primary-container/15">
+          <span className="sc-chip-primary !bg-primary-container/15">
             {team.player_count} {team.player_count === 1 ? 'Player' : 'Players'}
           </span>
         </div>
@@ -53,11 +53,11 @@ export default function TeamCard({ team, isAdmin, onEdit, onDelete }) {
 
       {isAdmin && (
         <div className="flex gap-2 mt-4 pt-4 border-t border-outline-variant/30">
-          <button onClick={onEdit} className="qiu-btn-ghost flex-1 !bg-surface-low">
+          <button onClick={onEdit} className="sc-btn-ghost flex-1 !bg-surface-low">
             Edit
           </button>
           <button onClick={onDelete}
-            className="qiu-btn-ghost flex-1 !text-danger hover:!bg-danger-container">
+            className="sc-btn-ghost flex-1 !text-danger hover:!bg-danger-container">
             Delete
           </button>
         </div>

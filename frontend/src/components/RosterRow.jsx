@@ -16,7 +16,7 @@ export default function RosterRow({ player, isCaptain, isAdmin, onEdit, onDelete
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-display text-headline-md text-ink leading-none">{player.name}</p>
           {isCaptain && (
-            <span className="qiu-chip bg-tertiary-container/40 text-tertiary-on-container">
+            <span className="sc-chip bg-tertiary-container/40 text-tertiary-on-container">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l3 6.5 7 .8-5.3 4.8 1.5 7-6.2-3.6L5.8 21l1.5-7L2 9.3l7-.8L12 2z" />
               </svg>

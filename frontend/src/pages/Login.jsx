@@ -28,15 +28,15 @@ export default function Login() {
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-16 h-16 rounded-md bg-hero-blue flex items-center justify-center
                             shadow-card mb-3">
-              <span className="font-display text-white text-2xl tracking-wide">QIU</span>
+              <span className="font-display text-white text-2xl tracking-wide">SC</span>
             </div>
             <h1 className="font-display text-headline-lg text-ink">Admin Portal</h1>
-            <p className="text-sm text-ink-variant mt-1">Sign in to manage university athletics</p>
+            <p className="text-sm text-ink-variant mt-1">Sign in to manage your sport club</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="qiu-label">Email Address</label>
+              <label className="sc-label">Email Address</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-variant">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -49,15 +49,15 @@ export default function Login() {
                   required
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="qiu-input pl-10"
-                  placeholder="name@qiu.edu"
+                  className="sc-input pl-10"
+                  placeholder="name@example.com"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="qiu-label !mb-0">Password</label>
+                <label className="sc-label !mb-0">Password</label>
                 <a href="#" className="font-label text-label-md font-semibold text-primary
                                        uppercase tracking-wider hover:underline">
                   Forgot?
@@ -75,7 +75,7 @@ export default function Login() {
                   required
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="qiu-input pl-10"
+                  className="sc-input pl-10"
                   placeholder="••••••••"
                 />
               </div>
@@ -97,7 +97,7 @@ export default function Login() {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="qiu-btn-primary w-full">
+            <button type="submit" disabled={loading} className="sc-btn-primary w-full">
               {loading ? 'Signing in…' : (
                 <>
                   Sign In
@@ -112,7 +112,7 @@ export default function Login() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z" />
               </svg>
-              Secure Institutional Access
+              Secure Access
             </p>
           </form>
         </div>

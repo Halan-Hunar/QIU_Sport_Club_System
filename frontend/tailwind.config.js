@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // QIU "Vibrant Sky" palette
+        // "Vibrant Sky" palette
         surface: {
           DEFAULT: '#f7f9ff',
           dim: '#badeff',
@@ -54,7 +54,7 @@ export default {
         live: '#e02d2d',
       },
       fontFamily: {
-        display: ['Anton', 'Impact', 'sans-serif'],
+        display: ['"DM Sans"', 'system-ui', 'sans-serif'],
         sans: ['Outfit', 'system-ui', 'sans-serif'],
         label: ['Inter', 'system-ui', 'sans-serif'],
       },

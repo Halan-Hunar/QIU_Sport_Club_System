@@ -70,20 +70,20 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
         </div>
 
         <div>
-          <label className="qiu-label">Full name</label>
+          <label className="sc-label">Full name</label>
           <input
             type="text"
             required
             minLength={2}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="qiu-input"
+            className="sc-input"
             placeholder="e.g. Marcus Rivera"
           />
         </div>
 
         <div>
-          <label className="qiu-label">Jersey number</label>
+          <label className="sc-label">Jersey number</label>
           <input
             type="number"
             required
@@ -91,13 +91,13 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
             max={999}
             value={form.jersey_number}
             onChange={(e) => setForm({ ...form, jersey_number: e.target.value })}
-            className="qiu-input"
+            className="sc-input"
             placeholder="10"
           />
         </div>
 
         <div>
-          <label className="qiu-label">Position</label>
+          <label className="sc-label">Position</label>
           <div className="grid grid-cols-5 gap-2">
             {positions.map((p) => (
               <button
@@ -125,10 +125,10 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
         )}
 
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={onClose} className="qiu-btn-secondary flex-1">
+          <button type="button" onClick={onClose} className="sc-btn-secondary flex-1">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="qiu-btn-primary flex-1">
+          <button type="submit" disabled={saving} className="sc-btn-primary flex-1">
             {saving ? 'Saving…' : player ? 'Save changes' : 'Add player'}
           </button>
         </div>

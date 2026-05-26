@@ -50,10 +50,10 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2 group">
           <div className="w-9 h-9 rounded-md bg-hero-blue flex items-center justify-center
                           shadow-card group-hover:shadow-card-hover transition-shadow">
-            <span className="font-display text-white text-base leading-none tracking-wide">Q</span>
+            <span className="font-display text-white text-base leading-none tracking-wide">S</span>
           </div>
           <span className="font-display text-xl text-primary tracking-wide hidden sm:inline">
-            QIU Sport Club
+            Sport Club
           </span>
         </Link>
 
@@ -67,13 +67,13 @@ export default function Navbar() {
           {token && user ? (
             <div className="hidden sm:flex items-center gap-3">
               {user.role === 'admin' && (
-                <span className="qiu-chip-primary">Admin</span>
+                <span className="sc-chip-primary">Admin</span>
               )}
               <span className="text-sm text-ink-variant hidden lg:inline">{user.email}</span>
-              <button onClick={handleLogout} className="qiu-btn-ghost">Logout</button>
+              <button onClick={handleLogout} className="sc-btn-ghost">Logout</button>
             </div>
           ) : (
-            <Link to="/login" className="qiu-btn-primary !py-2 !px-5">Login</Link>
+            <Link to="/login" className="sc-btn-primary !py-2 !px-5">Login</Link>
           )}
 
           {/* Mobile toggle */}
@@ -110,7 +110,7 @@ export default function Navbar() {
               </NavLink>
             ))}
             {token && user && (
-              <button onClick={handleLogout} className="qiu-btn-ghost self-start">
+              <button onClick={handleLogout} className="sc-btn-ghost self-start">
                 Logout ({user.email})
               </button>
             )}

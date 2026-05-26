@@ -1,5 +1,5 @@
 {
-  "name": "qiu-sportclub-backend",
+  "name": "sportclub-backend",
   "version": "1.0.0",
   "description": "Sport Club Management System - Backend API",
   "main": "src/index.js",

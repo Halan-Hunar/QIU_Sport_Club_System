@@ -74,21 +74,21 @@ export default function CreateTeamModal({ open, onClose, team = null }) {
         </div>
 
         <div>
-          <label className="qiu-label">Team name</label>
+          <label className="sc-label">Team name</label>
           <input
             type="text"
             required
             minLength={2}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="qiu-input"
+            className="sc-input"
             placeholder="e.g. Engineering FC"
           />
         </div>
 
         {/* Color presets */}
         <div>
-          <label className="qiu-label">Color presets</label>
+          <label className="sc-label">Color presets</label>
           <div className="flex gap-2 flex-wrap">
             {presets.map((p) => (
               <button
@@ -118,7 +118,7 @@ export default function CreateTeamModal({ open, onClose, team = null }) {
             { key: 'secondary_color', label: 'Secondary' },
           ].map(({ key, label }) => (
             <div key={key}>
-              <label className="qiu-label">{label}</label>
+              <label className="sc-label">{label}</label>
               <div className="flex items-center gap-2 bg-white border border-outline-variant
                               rounded px-3 py-2">
                 <input
@@ -142,10 +142,10 @@ export default function CreateTeamModal({ open, onClose, team = null }) {
         )}
 
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={onClose} className="qiu-btn-secondary flex-1">
+          <button type="button" onClick={onClose} className="sc-btn-secondary flex-1">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="qiu-btn-primary flex-1">
+          <button type="submit" disabled={saving} className="sc-btn-primary flex-1">
             {saving ? 'Saving…' : team ? 'Save changes' : 'Create team'}
           </button>
         </div>

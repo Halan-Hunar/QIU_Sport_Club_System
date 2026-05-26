@@ -50,6 +50,19 @@ export const useTeamStore = create((set, get) => ({
     }
   },
 
+  // Lightweight roster lookup that doesn't touch `current` — used by modals
+  // that need a team's players without disrupting the active TeamDetail page.
+  fetchRoster: async (id) => {
+    try {
+      const res = await fetch(`${API}/api/teams/${id}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.players ?? [];
+    } catch {
+      return [];
+    }
+  },
+
   // ─── Team writes ────────────────────────────────────────────
   createTeam: async (payload) => {
     set({ saving: true, error: null });

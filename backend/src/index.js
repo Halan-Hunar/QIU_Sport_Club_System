@@ -29,7 +29,7 @@ app.use(globalLimiter);
 // Stricter limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 50,
   message: { error: 'Too many login attempts. Try again in 15 minutes.' },
 });
 
@@ -46,14 +46,18 @@ app.use((req, _res, next) => {
 import authRoutes from './routes/auth.js';
 import teamRoutes from './routes/teams.js';
 import playerRoutes from './routes/players.js';
+import tournamentRoutes from './routes/tournaments.js';
+import matchRoutes from './routes/matches.js';
+import matchEventRoutes from './routes/matchEvents.js';
+import awardRoutes from './routes/awards.js';
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/players', playerRoutes);
-
-// TODO: mount as we build them
-// app.use('/api/tournaments', tournamentRoutes);
-// app.use('/api/matches', matchRoutes);
+app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/matches', matchRoutes);
+app.use('/api/match-events', matchEventRoutes);
+app.use('/api/awards', awardRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {

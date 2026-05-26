@@ -120,13 +120,13 @@ export default function TeamDetail() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <span className="qiu-chip bg-white/20 text-white">University Athletics</span>
+            <span className="sc-chip bg-white/20 text-white">University Athletics</span>
             <h1 className="font-display text-headline-lg sm:text-display-lg mt-3 leading-tight">
               {team.name}
             </h1>
 
             <div className="flex flex-wrap gap-2 mt-4">
-              <span className="qiu-chip bg-white/15 text-white">
+              <span className="sc-chip bg-white/15 text-white">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="9" cy="8" r="3" />
                   <circle cx="17" cy="9" r="2.5" />
@@ -134,7 +134,7 @@ export default function TeamDetail() {
                 </svg>
                 {players.length} Players
               </span>
-              <span className="qiu-chip bg-white/15 text-white">
+              <span className="sc-chip bg-white/15 text-white">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M3 6h18M5 6v14a2 2 0 002 2h10a2 2 0 002-2V6M9 10v6M15 10v6" />
                 </svg>
@@ -145,7 +145,7 @@ export default function TeamDetail() {
 
           {isAdmin && (
             <button onClick={() => setEditTeamOpen(true)}
-                    className="qiu-btn-secondary !bg-white/15 !border-white/30 !text-white
+                    className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
                                hover:!bg-white/25">
               Edit Team
             </button>
@@ -190,7 +190,7 @@ export default function TeamDetail() {
 
           {isAdmin && (
             <button onClick={() => { setEditPlayer(null); setPlayerModal(true); }}
-                    className="qiu-btn-primary !py-2 !px-4">
+                    className="sc-btn-primary !py-2 !px-4">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M12 5v14M5 12h14" strokeLinecap="round" />
               </svg>

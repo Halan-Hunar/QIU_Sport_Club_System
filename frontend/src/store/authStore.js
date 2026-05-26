@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 const API = import.meta.env.VITE_API_URL;
 
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
   user: null,
   token: localStorage.getItem('token') || null,
   loading: false,
@@ -26,6 +26,7 @@ export const useAuthStore = create((set) => ({
       }
 
       localStorage.setItem('token', data.token);
+      localStorage.setItem('refresh_token', data.refresh_token);
       set({ user: data.user, token: data.token, loading: false });
       return true;
     } catch {
@@ -47,7 +48,37 @@ export const useAuthStore = create((set) => ({
     }
 
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     set({ user: null, token: null });
+  },
+
+  // Silently refresh the access token using the refresh token
+  refreshToken: async () => {
+    const refresh_token = localStorage.getItem('refresh_token');
+    if (!refresh_token) return false;
+
+    try {
+      const res = await fetch(`${API}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token }),
+      });
+
+      if (!res.ok) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        set({ user: null, token: null });
+        return false;
+      }
+
+      const data = await res.json();
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      set({ user: data.user, token: data.token });
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   // Call this on app load to restore session
@@ -60,8 +91,25 @@ export const useAuthStore = create((set) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (res.status === 401) {
+        // Token expired — try to refresh silently
+        const refreshed = await get().refreshToken();
+        if (!refreshed) return;
+
+        // Retry /me with the new token
+        const newToken = localStorage.getItem('token');
+        const retry = await fetch(`${API}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${newToken}` },
+        });
+        if (!retry.ok) return;
+        const user = await retry.json();
+        set({ user, token: newToken });
+        return;
+      }
+
       if (!res.ok) {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         set({ user: null, token: null });
         return;
       }

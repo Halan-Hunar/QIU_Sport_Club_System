@@ -4,9 +4,9 @@ export default function Footer() {
       <div className="max-w-[1280px] mx-auto px-6 py-8
                       flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <p className="font-display text-lg text-primary tracking-wide">QIU Sport Club</p>
+          <p className="font-display text-lg text-primary tracking-wide">Sport Club</p>
           <p className="text-sm text-ink-variant mt-0.5">
-            © {new Date().getFullYear()} QIU Sport Club. University Athletics Department.
+            © {new Date().getFullYear()} Sport Club. Athletics Department.
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-variant">

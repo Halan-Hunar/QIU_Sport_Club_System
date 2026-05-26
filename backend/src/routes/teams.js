@@ -40,7 +40,7 @@ const sendValidationError = (res, parsed) =>
 
 // ─── GET /api/teams ───────────────────────────────────────────
 router.get('/', async (_req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('teams')
     .select('id, name, logo_url, primary_color, secondary_color, created_at, players(id)')
     .order('created_at', { ascending: false });
@@ -65,7 +65,7 @@ router.get('/', async (_req, res) => {
 
 // ─── GET /api/teams/:id ───────────────────────────────────────
 router.get('/:id', async (req, res) => {
-  const { data: team, error: teamErr } = await supabase
+  const { data: team, error: teamErr } = await supabaseAdmin
     .from('teams')
     .select('*')
     .eq('id', req.params.id)
@@ -75,7 +75,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Team not found' });
   }
 
-  const { data: players, error: playerErr } = await supabase
+  const { data: players, error: playerErr } = await supabaseAdmin
     .from('players')
     .select('id, name, jersey_number, position, photo_url, created_at')
     .eq('team_id', team.id)
@@ -86,7 +86,7 @@ router.get('/:id', async (req, res) => {
     return res.status(500).json({ error: 'Failed to fetch roster' });
   }
 
-  const { data: captains } = await supabase
+  const { data: captains } = await supabaseAdmin
     .from('team_captains')
     .select('player_id, tournament_id')
     .eq('team_id', team.id);

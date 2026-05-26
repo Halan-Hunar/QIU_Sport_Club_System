@@ -1,4 +1,4 @@
-import { supabase } from '../utils/supabase.js';
+import { supabase, supabaseAdmin } from '../utils/supabase.js';
 
 /**
  * Verifies the Supabase JWT from the Authorization header.
@@ -19,8 +19,8 @@ export const requireAuth = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  // Fetch role from our users table
-  const { data: profile, error: profileError } = await supabase
+  // Fetch role from our users table (admin client bypasses RLS)
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('users')
     .select('role')
     .eq('id', user.id)

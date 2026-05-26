@@ -73,7 +73,7 @@ export default function Teams() {
             University Teams
           </h1>
           <p className="text-ink-variant mt-2 max-w-xl">
-            Browse the competitive athletic teams of Qaiwan International University —
+            Browse the competitive athletic teams across the club —
             from varsity football to academic sports clubs.
           </p>
         </div>
@@ -91,12 +91,12 @@ export default function Teams() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search teams..."
-              className="qiu-input pl-10 !py-2.5 min-w-[240px]"
+              className="sc-input pl-10 !py-2.5 min-w-[240px]"
             />
           </div>
           {isAdmin && (
             <button onClick={() => { setEditing(null); setModalOpen(true); }}
-                    className="qiu-btn-primary !py-2.5">
+                    className="sc-btn-primary !py-2.5">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M12 5v14M5 12h14" strokeLinecap="round" />
               </svg>
@@ -154,7 +154,7 @@ export default function Teams() {
           </p>
           {isAdmin && !query && (
             <button onClick={() => setModalOpen(true)}
-                    className="qiu-btn-primary mt-4">
+                    className="sc-btn-primary mt-4">
               Create the first one
             </button>
           )}
