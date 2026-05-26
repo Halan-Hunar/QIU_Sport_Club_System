@@ -44,13 +44,16 @@ app.use((req, _res, next) => {
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
 import authRoutes from './routes/auth.js';
+import teamRoutes from './routes/teams.js';
+import playerRoutes from './routes/players.js';
+
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/players', playerRoutes);
 
 // TODO: mount as we build them
 // app.use('/api/tournaments', tournamentRoutes);
-// app.use('/api/teams', teamRoutes);
 // app.use('/api/matches', matchRoutes);
-// app.use('/api/players', playerRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {

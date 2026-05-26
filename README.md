@@ -1,6 +1,6 @@
-# QIU Sport Club Management System
+# Sport Club Management System
 
-A mobile-first web application for managing university sports club tournaments at Qaiwan International University.
+A web application for managing university sports club tournaments.
 
 ## Tech Stack
 
@@ -13,7 +13,7 @@ A mobile-first web application for managing university sports club tournaments a
 ## Project Structure
 
 ```
-QIU_Sport_Club_System/
+Sport_Club_System/
 ├── backend/       # Node.js + Express API
 └── frontend/      # React + Vite app
 ```

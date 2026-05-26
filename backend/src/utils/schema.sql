@@ -1,5 +1,5 @@
 -- ============================================================
--- QIU Sport Club Management System — Database Schema
+-- Sport Club Management System — Database Schema
 -- Run this in Supabase SQL Editor
 -- ============================================================
 
