@@ -1,3 +1,5 @@
+import { Calendar } from 'lucide-react';
+
 const statusStyles = {
   scheduled: 'bg-surface-low text-ink-variant',
   live:      'bg-danger/15 text-danger',
@@ -7,10 +9,9 @@ const statusStyles = {
 
 function formatKickoff(iso) {
   if (!iso) return 'Time TBD';
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
   });
 }
 
@@ -74,6 +75,14 @@ export default function MatchCard({ match, isAdmin, onEditScore, onOpen, compact
         isWinner={awayWins}
         isLive={isLive}
       />
+
+      {/* Scheduled date/time — show under the team rows when set and not yet played. */}
+      {match.scheduled_at && match.status === 'scheduled' && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-ink-variant">
+          <Calendar size={12} strokeWidth={2} aria-hidden />
+          <span>{formatKickoff(match.scheduled_at)}</span>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 mt-3 pt-3
                       border-t border-outline-variant/30">

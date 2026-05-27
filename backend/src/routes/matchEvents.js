@@ -20,6 +20,41 @@ const createEventSchema = z.object({
 const sendValidationError = (res, parsed) =>
   res.status(400).json({ error: parsed.error.errors[0].message });
 
+// ─── GET /api/match-events/stats ──────────────────────────────
+// Aggregate counts for Home page. Uses head:true count queries so we never
+// pull row payloads. Note: in supabase-js v2 you must call .select() before
+// any filter methods (.eq, etc.) — .from() alone returns a query builder
+// that doesn't expose filters yet.
+router.get('/stats', async (_req, res) => {
+  const headCount = (table, filters = {}) => {
+    let q = supabaseAdmin.from(table).select('*', { count: 'exact', head: true });
+    for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+    return q;
+  };
+
+  const [teamsRes, completedRes, goalsRes, activeRes, upcomingRes] = await Promise.all([
+    headCount('teams'),
+    headCount('matches', { status: 'completed' }),
+    headCount('match_events', { event_type: 'goal' }),
+    headCount('tournaments', { status: 'active' }),
+    headCount('tournaments', { status: 'upcoming' }),
+  ]);
+
+  const firstError = [teamsRes, completedRes, goalsRes, activeRes, upcomingRes]
+    .find((r) => r.error)?.error;
+  if (firstError) {
+    logger.error(`Stats query failed: ${firstError.message}`);
+    return res.status(500).json({ error: 'Failed to load stats' });
+  }
+
+  res.json({
+    total_teams: teamsRes.count ?? 0,
+    total_matches: completedRes.count ?? 0,
+    total_goals: goalsRes.count ?? 0,
+    active_tournaments: (activeRes.count ?? 0) + (upcomingRes.count ?? 0),
+  });
+});
+
 // ─── GET /api/match-events?match_id=… ─────────────────────────
 router.get('/', async (req, res) => {
   const matchId = req.query.match_id;

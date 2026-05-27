@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Trophy, CircleDot, Award as AwardIcon, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useAwardStore } from '../store/awardStore';
 import { useTournamentStore } from '../store/tournamentStore';
@@ -8,10 +9,10 @@ import { useTeamStore } from '../store/teamStore';
 import Modal from '../components/Modal';
 
 const awardMeta = {
-  top_scorer:  { label: 'Top Scorer',   icon: '⚽', kind: 'player', accent: 'primary' },
-  best_player: { label: 'Best Player',  icon: '🏆', kind: 'player', accent: 'tertiary' },
-  winner:      { label: 'Champion',     icon: '🥇', kind: 'team',   accent: 'primary' },
-  clean_sheet: { label: 'Clean Sheet',  icon: '🥅', kind: 'team',   accent: 'secondary' },
+  top_scorer:  { label: 'Top Scorer',  Icon: CircleDot,   kind: 'player', accent: 'primary',   tone: 'text-primary' },
+  best_player: { label: 'Best Player', Icon: AwardIcon,   kind: 'player', accent: 'tertiary',  tone: 'text-tertiary' },
+  winner:      { label: 'Champion',    Icon: Trophy,      kind: 'team',   accent: 'primary',   tone: 'text-primary' },
+  clean_sheet: { label: 'Clean Sheet', Icon: ShieldCheck, kind: 'team',   accent: 'secondary', tone: 'text-secondary' },
 };
 
 const awardOrder = ['winner', 'top_scorer', 'best_player', 'clean_sheet'];
@@ -19,14 +20,15 @@ const awardOrder = ['winner', 'top_scorer', 'best_player', 'clean_sheet'];
 function AwardCard({ type, award, isAdmin, suggestion, onEdit, onClear }) {
   const meta = awardMeta[type];
   const subject = meta.kind === 'player' ? award?.player : award?.team;
+  const Icon = meta.Icon;
 
   return (
     <div className="bg-white rounded-md border border-outline-variant/30 shadow-card
                     p-5 flex flex-col h-full">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-full bg-surface-low flex items-center
-                        justify-center text-2xl">
-          {meta.icon}
+        <div className={`w-12 h-12 rounded-full bg-surface-low flex items-center
+                        justify-center ${meta.tone}`}>
+          <Icon size={22} strokeWidth={2} aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-label text-label-md uppercase tracking-wider text-ink-variant">

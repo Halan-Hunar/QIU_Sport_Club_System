@@ -1,3 +1,6 @@
+// Realtime updates require the matches table to be in Supabase's publication.
+// Run once in the SQL editor (idempotent, errors if already added):
+//   alter publication supabase_realtime add table public.matches;
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
@@ -144,6 +147,24 @@ export const useMatchStore = create((set, get) => ({
       supabase.removeChannel(channel);
       set({ channel: null });
     }
+  },
+
+  // Used by eventStore.logEvent to apply the backend's score bump locally,
+  // so the scoreboard reflects a logged goal immediately even when realtime
+  // is delayed (or the publication isn't wired yet).
+  bumpScore: (matchId, scoringTeamId) => {
+    set((s) => ({
+      matches: s.matches.map((m) => {
+        if (m.id !== matchId) return m;
+        if (scoringTeamId === m.home_team_id) {
+          return { ...m, home_score: (m.home_score ?? 0) + 1 };
+        }
+        if (scoringTeamId === m.away_team_id) {
+          return { ...m, away_score: (m.away_score ?? 0) + 1 };
+        }
+        return m;
+      }),
+    }));
   },
 
   clearError: () => set({ error: null }),

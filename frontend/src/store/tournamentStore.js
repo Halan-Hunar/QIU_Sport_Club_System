@@ -188,5 +188,64 @@ export const useTournamentStore = create((set, get) => ({
     }
   },
 
+  // ─── Player registration (individual sport tournaments) ────
+  registerPlayer: async (tournamentId, payload) => {
+    set({ saving: true, error: null });
+    try {
+      const res = await fetch(`${API}/api/tournaments/${tournamentId}/players`, {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        set({ error: data.error || 'Failed to register player', saving: false });
+        return null;
+      }
+      set((s) => ({
+        current: s.current && s.current.tournament.id === tournamentId
+          ? {
+              ...s.current,
+              players: [...(s.current.players ?? []), data.registration],
+            }
+          : s.current,
+        saving: false,
+      }));
+      return data.registration;
+    } catch {
+      set({ error: 'Connection failed.', saving: false });
+      return null;
+    }
+  },
+
+  unregisterPlayer: async (tournamentId, playerId) => {
+    set({ saving: true, error: null });
+    try {
+      const res = await fetch(
+        `${API}/api/tournaments/${tournamentId}/players/${playerId}`,
+        { method: 'DELETE', headers: authHeaders() },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        set({ error: data.error || 'Failed to unregister player', saving: false });
+        return false;
+      }
+      const { current } = get();
+      set({
+        current: current && current.tournament.id === tournamentId
+          ? {
+              ...current,
+              players: (current.players ?? []).filter((r) => r.player.id !== playerId),
+            }
+          : current,
+        saving: false,
+      });
+      return true;
+    } catch {
+      set({ error: 'Connection failed.', saving: false });
+      return false;
+    }
+  },
+
   clearError: () => set({ error: null }),
 }));

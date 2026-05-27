@@ -1,0 +1,39 @@
+import { create } from 'zustand';
+
+const API = import.meta.env.VITE_API_URL;
+
+export const useHomeStore = create((set) => ({
+  stats: null,           // { total_teams, total_matches, total_goals, active_tournaments }
+  upcoming: [],          // up to 4 upcoming/active tournaments
+  loading: false,
+  error: null,
+
+  fetchHomeData: async () => {
+    set({ loading: true, error: null });
+    try {
+      const [statsRes, tournamentsRes] = await Promise.all([
+        fetch(`${API}/api/match-events/stats`),
+        fetch(`${API}/api/tournaments`),
+      ]);
+      const statsData = await statsRes.json();
+      const tournamentsData = await tournamentsRes.json();
+
+      if (!statsRes.ok) {
+        set({ error: statsData.error || 'Failed to load stats', loading: false });
+        return;
+      }
+      if (!tournamentsRes.ok) {
+        set({ error: tournamentsData.error || 'Failed to load tournaments', loading: false });
+        return;
+      }
+
+      const upcoming = (tournamentsData.tournaments ?? [])
+        .filter((t) => t.status === 'active' || t.status === 'upcoming')
+        .slice(0, 4);
+
+      set({ stats: statsData, upcoming, loading: false });
+    } catch {
+      set({ error: 'Connection failed.', loading: false });
+    }
+  },
+}));

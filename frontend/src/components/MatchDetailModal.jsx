@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
 import MatchEventLog from './MatchEventLog';
 import LogEventModal from './LogEventModal';
 import EditScoreModal from './EditScoreModal';
 import { useEventStore } from '../store/eventStore';
+import { useMatchStore } from '../store/matchStore';
 
-const statusStyles = {
-  scheduled: 'bg-surface-low text-ink-variant',
-  live:      'bg-danger/15 text-danger',
-  completed: 'bg-primary-container/30 text-primary',
-  postponed: 'bg-secondary-container/40 text-secondary',
-};
+const STATUSES = [
+  { value: 'scheduled', label: 'Scheduled', activeClass: 'bg-surface-low text-ink' },
+  { value: 'live',      label: 'Live',      activeClass: 'bg-danger/15 text-danger' },
+  { value: 'completed', label: 'Completed', activeClass: 'bg-primary-container/30 text-primary' },
+  { value: 'postponed', label: 'Postponed', activeClass: 'bg-secondary-container/40 text-secondary' },
+];
 
 function ScoreSide({ team, score, winner }) {
   return (
@@ -37,7 +39,72 @@ function ScoreSide({ team, score, winner }) {
   );
 }
 
-export default function MatchDetailModal({ open, onClose, match, isAdmin }) {
+// Segmented control for status. Each pill triggers updateMatch immediately
+// and shows a spinner in place of its label while the request is in flight.
+function StatusControl({ match }) {
+  const updateMatch = useMatchStore((s) => s.updateMatch);
+  const [pendingStatus, setPendingStatus] = useState(null);
+
+  // Clear the pending intent once the store reflects the new status.
+  useEffect(() => {
+    if (pendingStatus && match.status === pendingStatus) setPendingStatus(null);
+  }, [match.status, pendingStatus]);
+
+  const handleClick = async (status) => {
+    if (status === match.status || pendingStatus) return;
+    setPendingStatus(status);
+    const result = await updateMatch(match.id, { status });
+    if (!result) setPendingStatus(null);
+  };
+
+  return (
+    <div>
+      <p className="font-label text-label-md uppercase tracking-wider text-ink-variant mb-2">
+        Status
+      </p>
+      <div className="flex flex-wrap gap-1.5 bg-white rounded-full border
+                      border-outline-variant/40 p-1 shadow-card w-fit">
+        {STATUSES.map((s) => {
+          const isActive = s.value === match.status;
+          const isPending = pendingStatus === s.value;
+          return (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => handleClick(s.value)}
+              disabled={!!pendingStatus}
+              className={`px-3 py-1.5 rounded-full text-label-md font-label font-semibold
+                         uppercase tracking-wider transition-colors flex items-center gap-1.5
+                         disabled:cursor-not-allowed
+                         ${isActive
+                           ? s.activeClass
+                           : 'text-ink-variant hover:text-primary'}`}
+            >
+              {isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : isActive && s.value === 'live' ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse inline-block" />
+              ) : null}
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Read the *live* match from the store rather than relying solely on the prop
+// (which is just the snapshot captured when the modal was opened). This way
+// score updates, status changes, etc. propagate without re-opening the modal.
+function useLiveMatch(matchProp) {
+  const matches = useMatchStore((s) => s.matches);
+  if (!matchProp) return null;
+  return matches.find((m) => m.id === matchProp.id) ?? matchProp;
+}
+
+export default function MatchDetailModal({ open, onClose, match: matchProp, isAdmin }) {
+  const match = useLiveMatch(matchProp);
   const [logOpen, setLogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const deleteEvent = useEventStore((s) => s.deleteEvent);
@@ -46,6 +113,7 @@ export default function MatchDetailModal({ open, onClose, match, isAdmin }) {
 
   const homeWins = match.status === 'completed' && match.winner_id === match.home_team_id;
   const awayWins = match.status === 'completed' && match.winner_id === match.away_team_id;
+  const currentStatusMeta = STATUSES.find((s) => s.value === match.status);
 
   const handleDeleteEvent = async (ev) => {
     if (!window.confirm('Remove this event from the log?')) return;
@@ -71,24 +139,34 @@ export default function MatchDetailModal({ open, onClose, match, isAdmin }) {
             <ScoreSide team={match.away_team} score={match.away_score} winner={awayWins} />
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <span className={`sc-chip capitalize ${statusStyles[match.status] ?? ''}`}>
-              {match.status === 'live' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse mr-1 inline-block" />
-              )}
-              {match.status}
-            </span>
-            {isAdmin && (
-              <div className="flex gap-2">
-                <button onClick={() => setLogOpen(true)} className="sc-btn-secondary !py-1.5 !px-3 text-sm">
-                  Log Event
-                </button>
-                <button onClick={() => setEditOpen(true)} className="sc-btn-primary !py-1.5 !px-3 text-sm">
-                  Edit Score
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Status — admin gets the inline segmented control; viewers get a chip */}
+          {isAdmin ? (
+            <StatusControl match={match} />
+          ) : (
+            <div>
+              <p className="font-label text-label-md uppercase tracking-wider text-ink-variant mb-2">
+                Status
+              </p>
+              <span className={`sc-chip capitalize ${currentStatusMeta?.activeClass ?? ''}`}>
+                {match.status === 'live' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse mr-1 inline-block" />
+                )}
+                {match.status}
+              </span>
+            </div>
+          )}
+
+          {/* Admin actions */}
+          {isAdmin && (
+            <div className="flex gap-2">
+              <button onClick={() => setLogOpen(true)} className="sc-btn-secondary flex-1">
+                Log Event
+              </button>
+              <button onClick={() => setEditOpen(true)} className="sc-btn-primary flex-1">
+                Edit Score
+              </button>
+            </div>
+          )}
 
           <div>
             <p className="font-label text-label-md uppercase tracking-wider text-ink-variant mb-2">

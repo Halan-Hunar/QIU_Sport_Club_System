@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { CircleDot, Square, ArrowLeftRight, X } from 'lucide-react';
 import { useEventStore } from '../store/eventStore';
 
 const eventLabels = {
-  goal:         { label: 'Goal',           icon: '⚽' },
-  own_goal:     { label: 'Own Goal',       icon: '🥅' },
-  yellow_card:  { label: 'Yellow Card',    icon: '🟨' },
-  red_card:     { label: 'Red Card',       icon: '🟥' },
-  substitution: { label: 'Substitution',   icon: '🔁' },
+  goal:         { label: 'Goal',         Icon: CircleDot,      iconClass: 'text-primary' },
+  own_goal:     { label: 'Own Goal',     Icon: CircleDot,      iconClass: 'text-danger' },
+  yellow_card:  { label: 'Yellow Card',  Icon: Square,         iconClass: 'fill-yellow-400 text-yellow-500' },
+  red_card:     { label: 'Red Card',     Icon: Square,         iconClass: 'fill-danger text-danger' },
+  substitution: { label: 'Substitution', Icon: ArrowLeftRight, iconClass: 'text-tertiary' },
 };
 
 function formatMinute(m) {
@@ -55,7 +56,9 @@ export default function MatchEventLog({ matchId, isAdmin, onDelete }) {
     <div className="max-h-72 overflow-y-auto pr-1 space-y-1">
       <AnimatePresence initial={false}>
         {events.map((ev) => {
-          const meta = eventLabels[ev.event_type] ?? { label: ev.event_type, icon: '•' };
+          const meta = eventLabels[ev.event_type]
+            ?? { label: ev.event_type, Icon: CircleDot, iconClass: 'text-ink-variant' };
+          const Icon = meta.Icon;
           return (
             <motion.div
               key={ev.id}
@@ -71,7 +74,7 @@ export default function MatchEventLog({ matchId, isAdmin, onDelete }) {
                                tabular-nums text-center">
                 {formatMinute(ev.minute)}
               </span>
-              <span className="text-lg">{meta.icon}</span>
+              <Icon size={18} strokeWidth={2.25} className={meta.iconClass} aria-hidden />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">
                   {meta.label}
@@ -104,10 +107,7 @@ export default function MatchEventLog({ matchId, isAdmin, onDelete }) {
                              text-ink-variant hover:text-danger"
                   aria-label="Delete event"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" strokeWidth="2.5">
-                    <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                  </svg>
+                  <X size={14} strokeWidth={2.5} />
                 </button>
               )}
             </motion.div>

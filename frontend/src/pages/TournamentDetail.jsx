@@ -5,8 +5,11 @@ import { useAuthStore } from '../store/authStore';
 import { useTournamentStore } from '../store/tournamentStore';
 import { useTeamStore } from '../store/teamStore';
 import { useMatchStore } from '../store/matchStore';
+import { usePlayerStore } from '../store/playerStore';
 import CreateTournamentModal from '../components/CreateTournamentModal';
 import Modal from '../components/Modal';
+import PlayerDetailModal from '../components/PlayerDetailModal';
+import { Trophy, Plus, X, Loader2, UserPlus } from 'lucide-react';
 import Bracket from '../components/Bracket';
 import StandingsTable from '../components/StandingsTable';
 import MatchCard from '../components/MatchCard';
@@ -29,17 +32,18 @@ function formatDateRange(start, end) {
 
 function RegisterTeamModal({ open, onClose, tournamentId, registeredIds }) {
   const { teams, fetchTeams } = useTeamStore();
-  const { registerTeam, saving, error, clearError } = useTournamentStore();
-  const [teamId, setTeamId] = useState('');
-  const [seed, setSeed] = useState('');
-  const [groupName, setGroupName] = useState('');
+  const { registerTeam, error, clearError } = useTournamentStore();
+  const [selected, setSelected] = useState(() => new Set());
+  // Tracks per-team status during the bulk register run: 'pending' | 'done' | 'failed'
+  const [progress, setProgress] = useState({});
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     if (open) {
       fetchTeams();
-      setTeamId('');
-      setSeed('');
-      setGroupName('');
+      setSelected(new Set());
+      setProgress({});
+      setRunning(false);
       clearError();
     }
   }, [open, fetchTeams, clearError]);
@@ -49,67 +53,97 @@ function RegisterTeamModal({ open, onClose, tournamentId, registeredIds }) {
     [teams, registeredIds],
   );
 
+  const toggle = (id) => {
+    if (running) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!teamId) return;
-    const payload = { team_id: teamId };
-    if (seed) payload.seed = Number(seed);
-    if (groupName.trim()) payload.group_name = groupName.trim().toUpperCase();
-    const result = await registerTeam(tournamentId, payload);
-    if (result) onClose();
+    if (selected.size === 0 || running) return;
+    setRunning(true);
+    const ids = [...selected];
+    setProgress(Object.fromEntries(ids.map((id) => [id, 'pending'])));
+
+    let anyFailed = false;
+    for (const teamId of ids) {
+      const result = await registerTeam(tournamentId, { team_id: teamId });
+      setProgress((p) => ({ ...p, [teamId]: result ? 'done' : 'failed' }));
+      if (!result) anyFailed = true;
+    }
+    setRunning(false);
+    if (!anyFailed) onClose();
   };
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title="Register Team"
-      subtitle="Add a team to this tournament."
+      onClose={running ? () => {} : onClose}
+      title="Register Teams"
+      subtitle="Select one or more teams to register."
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="sc-label">Team</label>
-          <select
-            required
-            value={teamId}
-            onChange={(e) => setTeamId(e.target.value)}
-            className="sc-input"
-          >
-            <option value="">Select a team…</option>
-            {available.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-          {available.length === 0 && teams.length > 0 && (
-            <p className="text-sm text-ink-variant mt-1">All teams are already registered.</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="sc-label">Seed (optional)</label>
-            <input
-              type="number"
-              min={1}
-              max={999}
-              value={seed}
-              onChange={(e) => setSeed(e.target.value)}
-              className="sc-input"
-              placeholder="e.g. 1"
-            />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {available.length === 0 ? (
+          <div className="bg-surface-low rounded-sm py-8 text-center">
+            <p className="text-ink-variant text-sm">
+              {teams.length === 0 ? 'Loading teams…' : 'All teams are already registered.'}
+            </p>
           </div>
-          <div>
-            <label className="sc-label">Group (optional)</label>
-            <input
-              type="text"
-              maxLength={10}
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              className="sc-input uppercase"
-              placeholder="e.g. A"
-            />
+        ) : (
+          <div className="max-h-72 overflow-y-auto -mx-1 pr-1 space-y-1">
+            {available.map((t) => {
+              const state = progress[t.id];
+              const isChecked = selected.has(t.id);
+              return (
+                <label
+                  key={t.id}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-sm border
+                              transition-colors cursor-pointer
+                              ${isChecked
+                                ? 'border-primary-container bg-primary-container/10'
+                                : 'border-outline-variant/40 hover:bg-surface-low'}
+                              ${running ? 'cursor-default opacity-90' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggle(t.id)}
+                    disabled={running}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <span
+                    className="w-7 h-7 rounded-full flex-shrink-0 border border-outline-variant/40
+                               flex items-center justify-center text-white text-xs font-display"
+                    style={{
+                      background: `linear-gradient(135deg, ${t.primary_color}, ${t.secondary_color})`,
+                    }}
+                  >
+                    {t.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="flex-1 truncate text-ink">{t.name}</span>
+                  {state === 'pending' && (
+                    <Loader2 size={16} className="animate-spin text-primary" aria-label="Registering" />
+                  )}
+                  {state === 'done' && (
+                    <span className="text-xs font-label uppercase tracking-wider text-primary">
+                      Done
+                    </span>
+                  )}
+                  {state === 'failed' && (
+                    <span className="text-xs font-label uppercase tracking-wider text-danger">
+                      Failed
+                    </span>
+                  )}
+                </label>
+              );
+            })}
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="bg-danger-container text-danger-on-container rounded-sm px-3 py-2 text-sm">
@@ -118,11 +152,166 @@ function RegisterTeamModal({ open, onClose, tournamentId, registeredIds }) {
         )}
 
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={onClose} className="sc-btn-secondary flex-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={running}
+            className="sc-btn-secondary flex-1"
+          >
             Cancel
           </button>
-          <button type="submit" disabled={saving || !teamId} className="sc-btn-primary flex-1">
-            {saving ? 'Registering…' : 'Register Team'}
+          <button
+            type="submit"
+            disabled={selected.size === 0 || running || available.length === 0}
+            className="sc-btn-primary flex-1"
+          >
+            {running
+              ? `Registering ${selected.size}…`
+              : `Register ${selected.size || ''} ${selected.size === 1 ? 'Team' : 'Teams'}`.trim()}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function RegisterPlayersModal({ open, onClose, tournamentId, sportFilter, registeredIds }) {
+  const players = usePlayerStore((s) => s.players);
+  const fetchPlayers = usePlayerStore((s) => s.fetchPlayers);
+  const { registerPlayer, error, clearError } = useTournamentStore();
+  const [selected, setSelected] = useState(() => new Set());
+  const [progress, setProgress] = useState({});
+  const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchPlayers({ standalone: true, sport: sportFilter || null });
+      setSelected(new Set());
+      setProgress({});
+      setRunning(false);
+      clearError();
+    }
+  }, [open, fetchPlayers, sportFilter, clearError]);
+
+  const available = useMemo(
+    () => players.filter((p) => !registeredIds.has(p.id)),
+    [players, registeredIds],
+  );
+
+  const toggle = (id) => {
+    if (running) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (selected.size === 0 || running) return;
+    setRunning(true);
+    const ids = [...selected];
+    setProgress(Object.fromEntries(ids.map((id) => [id, 'pending'])));
+
+    let anyFailed = false;
+    for (const playerId of ids) {
+      const result = await registerPlayer(tournamentId, { player_id: playerId });
+      setProgress((p) => ({ ...p, [playerId]: result ? 'done' : 'failed' }));
+      if (!result) anyFailed = true;
+    }
+    setRunning(false);
+    if (!anyFailed) onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={running ? () => {} : onClose}
+      title="Register Players"
+      subtitle={
+        sportFilter
+          ? `Showing standalone players tagged for ${sportFilter.replace(/_/g, ' ')}.`
+          : 'Select individual players for this tournament.'
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {available.length === 0 ? (
+          <div className="bg-surface-low rounded-sm py-8 text-center">
+            <p className="text-ink-variant text-sm">
+              {players.length === 0
+                ? (sportFilter
+                    ? `No standalone players are tagged for "${sportFilter.replace(/_/g, ' ')}" yet — add or edit players on the Players page and pick this sport.`
+                    : 'No standalone players exist yet — add some on the Players page first.')
+                : 'All matching standalone players are already registered.'}
+            </p>
+          </div>
+        ) : (
+          <div className="max-h-72 overflow-y-auto -mx-1 pr-1 space-y-1">
+            {available.map((p) => {
+              const state = progress[p.id];
+              const isChecked = selected.has(p.id);
+              return (
+                <label
+                  key={p.id}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-sm border
+                              transition-colors cursor-pointer
+                              ${isChecked
+                                ? 'border-primary-container bg-primary-container/10'
+                                : 'border-outline-variant/40 hover:bg-surface-low'}
+                              ${running ? 'cursor-default opacity-90' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggle(p.id)}
+                    disabled={running}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <span className="w-7 h-7 rounded-full bg-primary text-white flex-shrink-0
+                                   flex items-center justify-center text-xs font-display">
+                    {p.jersey_number != null
+                      ? String(p.jersey_number).padStart(2, '0')
+                      : p.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="flex-1 truncate text-ink">{p.name}</span>
+                  <span className="font-label text-label-md uppercase tracking-wider text-ink-variant">
+                    {p.position ?? 'N/A'}
+                  </span>
+                  {state === 'pending' && (
+                    <Loader2 size={16} className="animate-spin text-primary" aria-label="Registering" />
+                  )}
+                  {state === 'done' && (
+                    <span className="text-xs font-label uppercase tracking-wider text-primary">Done</span>
+                  )}
+                  {state === 'failed' && (
+                    <span className="text-xs font-label uppercase tracking-wider text-danger">Failed</span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-danger-container text-danger-on-container rounded-sm px-3 py-2 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={onClose} disabled={running} className="sc-btn-secondary flex-1">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={selected.size === 0 || running || available.length === 0}
+            className="sc-btn-primary flex-1"
+          >
+            {running
+              ? `Registering ${selected.size}…`
+              : `Register ${selected.size || ''} ${selected.size === 1 ? 'Player' : 'Players'}`.trim()}
           </button>
         </div>
       </form>
@@ -153,12 +342,13 @@ export default function TournamentDetail() {
   const isAdmin = user?.role === 'admin';
   const {
     current, loading, error,
-    fetchTournamentById, unregisterTeam, deleteTournament,
+    fetchTournamentById, unregisterTeam, unregisterPlayer, deleteTournament,
   } = useTournamentStore();
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [openMatch, setOpenMatch] = useState(null);
+  const [openPlayerId, setOpenPlayerId] = useState(null);
 
   const {
     matches, standings, saving: matchSaving, error: matchError,
@@ -187,10 +377,19 @@ export default function TournamentDetail() {
     () => new Set((current?.teams ?? []).map((r) => r.team.id)),
     [current],
   );
+  const registeredPlayerIds = useMemo(
+    () => new Set((current?.players ?? []).map((r) => r.player.id)),
+    [current],
+  );
 
   const handleUnregister = async (teamId, teamName) => {
     if (!window.confirm(`Remove "${teamName}" from this tournament?`)) return;
     await unregisterTeam(id, teamId);
+  };
+
+  const handleUnregisterPlayer = async (playerId, playerName) => {
+    if (!window.confirm(`Remove "${playerName}" from this tournament?`)) return;
+    await unregisterPlayer(id, playerId);
   };
 
   const handleDelete = async () => {
@@ -227,6 +426,8 @@ export default function TournamentDetail() {
   }
 
   const { tournament, teams } = current;
+  const players = current.players ?? [];
+  const isIndividual = !!tournament.is_individual;
   const isBracketFormat = tournament.format === 'single_elim' || tournament.format === 'double_elim';
 
   return (
@@ -281,7 +482,8 @@ export default function TournamentDetail() {
               className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
                          hover:!bg-white/25 text-center"
             >
-              🏆 Awards
+              <Trophy size={16} strokeWidth={2.25} />
+              Awards
             </Link>
             {isAdmin && (
               <>
@@ -307,7 +509,11 @@ export default function TournamentDetail() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
-        <StatTile label="Registered Teams" value={teams.length} accent="primary" />
+        <StatTile
+          label={isIndividual ? 'Registered Players' : 'Registered Teams'}
+          value={isIndividual ? players.length : teams.length}
+          accent="primary"
+        />
         <StatTile label="Format"
                   value={(formatLabels[tournament.format] ?? tournament.format).split(' ')[0]}
                   accent="secondary" />
@@ -316,16 +522,24 @@ export default function TournamentDetail() {
                   accent="tertiary" />
       </div>
 
-      {/* Registered teams */}
+      {/* Registered teams / players */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-        <h2 className="font-display text-headline-lg text-ink">Registered Teams</h2>
+        <h2 className="font-display text-headline-lg text-ink">
+          {isIndividual ? 'Registered Players' : 'Registered Teams'}
+        </h2>
         {isAdmin && (
           <button onClick={() => setRegisterOpen(true)} className="sc-btn-primary !py-2 !px-4">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-            </svg>
-            Register Team
+            {isIndividual ? (
+              <>
+                <UserPlus size={14} strokeWidth={2.5} />
+                Register Players
+              </>
+            ) : (
+              <>
+                <Plus size={14} strokeWidth={2.5} />
+                Register Teams
+              </>
+            )}
           </button>
         )}
       </div>
@@ -336,7 +550,61 @@ export default function TournamentDetail() {
         </div>
       )}
 
-      {teams.length === 0 ? (
+      {isIndividual ? (
+        players.length === 0 ? (
+          <div className="bg-white rounded-md border border-dashed border-outline-variant
+                          py-12 text-center mb-10">
+            <p className="text-ink-variant">No players registered yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
+            {players.map((r) => (
+              <div key={r.id}
+                   className="bg-white rounded-md border border-outline-variant/30 shadow-card
+                              p-4 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOpenPlayerId(r.player.id)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary text-white flex-shrink-0
+                                  flex items-center justify-center font-display text-lg
+                                  shadow-card">
+                    {r.player.jersey_number != null
+                      ? String(r.player.jersey_number).padStart(2, '0')
+                      : r.player.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-headline-md text-ink truncate
+                                  hover:text-primary transition-colors">
+                      {r.player.name}
+                    </p>
+                    <div className="flex gap-1.5 mt-1">
+                      <span className="sc-chip bg-surface-low text-ink-variant">
+                        {r.player.position ?? 'N/A'}
+                      </span>
+                      {r.seed != null && (
+                        <span className="sc-chip bg-surface-low text-ink-variant">
+                          Seed #{r.seed}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleUnregisterPlayer(r.player.id, r.player.name)}
+                    className="sc-btn-ghost !p-2 !text-danger hover:!bg-danger-container"
+                    aria-label="Unregister"
+                  >
+                    <X size={16} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      ) : teams.length === 0 ? (
         <div className="bg-white rounded-md border border-dashed border-outline-variant
                         py-12 text-center mb-10">
           <p className="text-ink-variant">No teams registered yet.</p>
@@ -377,10 +645,7 @@ export default function TournamentDetail() {
                     className="sc-btn-ghost !p-2 !text-danger hover:!bg-danger-container"
                     aria-label="Unregister"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" strokeWidth="2.5">
-                      <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                    </svg>
+                    <X size={16} strokeWidth={2.5} />
                   </button>
                 )}
             </div>
@@ -388,7 +653,9 @@ export default function TournamentDetail() {
         </div>
       )}
 
-      {/* Bracket / Standings */}
+      {/* Bracket / Standings (team tournaments only — individual brackets TBD) */}
+      {!isIndividual && (
+      <>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
         <h2 className="font-display text-headline-lg text-ink">
           {isBracketFormat ? 'Bracket' : 'Standings'}
@@ -461,23 +728,40 @@ export default function TournamentDetail() {
           </div>
         </div>
       )}
+      </>
+      )}
 
       <CreateTournamentModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
         tournament={tournament}
       />
-      <RegisterTeamModal
-        open={registerOpen}
-        onClose={() => setRegisterOpen(false)}
-        tournamentId={id}
-        registeredIds={registeredIds}
-      />
+      {isIndividual ? (
+        <RegisterPlayersModal
+          open={registerOpen}
+          onClose={() => setRegisterOpen(false)}
+          tournamentId={id}
+          sportFilter={tournament.sport_type}
+          registeredIds={registeredPlayerIds}
+        />
+      ) : (
+        <RegisterTeamModal
+          open={registerOpen}
+          onClose={() => setRegisterOpen(false)}
+          tournamentId={id}
+          registeredIds={registeredIds}
+        />
+      )}
       <MatchDetailModal
         open={!!openMatch}
         onClose={() => setOpenMatch(null)}
         match={openMatch}
         isAdmin={isAdmin}
+      />
+      <PlayerDetailModal
+        open={!!openPlayerId}
+        onClose={() => setOpenPlayerId(null)}
+        playerId={openPlayerId}
       />
     </motion.div>
   );

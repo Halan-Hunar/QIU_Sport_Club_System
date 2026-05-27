@@ -50,6 +50,7 @@ import tournamentRoutes from './routes/tournaments.js';
 import matchRoutes from './routes/matches.js';
 import matchEventRoutes from './routes/matchEvents.js';
 import awardRoutes from './routes/awards.js';
+import statsRoutes from './routes/stats.js';
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/teams', teamRoutes);
@@ -58,6 +59,7 @@ app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/match-events', matchEventRoutes);
 app.use('/api/awards', awardRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {

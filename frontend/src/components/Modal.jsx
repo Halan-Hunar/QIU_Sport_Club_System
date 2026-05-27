@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect } from 'react';
+import { X } from 'lucide-react';
 
 export default function Modal({ open, onClose, title, subtitle, children }) {
   useEffect(() => {
@@ -24,9 +25,16 @@ export default function Modal({ open, onClose, title, subtitle, children }) {
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
+          {/*
+            Layout: the dialog is capped at the viewport with a flex column.
+            Header is fixed at the top, the body becomes the only scrolling
+            region. This keeps the close button and title in view while long
+            forms (sports grid, etc.) can be scrolled to reach the footer.
+          */}
           <motion.div
             className="w-full sm:max-w-md bg-white rounded-t-md sm:rounded-md
-                       shadow-card-hover border border-outline-variant/40"
+                       shadow-card-hover border border-outline-variant/40
+                       flex flex-col max-h-[95vh] sm:max-h-[calc(100vh-2rem)]"
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}
@@ -34,7 +42,7 @@ export default function Modal({ open, onClose, title, subtitle, children }) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-4
+            <div className="flex-shrink-0 flex items-start justify-between gap-3 px-6 pt-6 pb-4
                             border-b border-outline-variant/30">
               <div>
                 <h2 className="font-display text-headline-md text-ink tracking-wide">{title}</h2>
@@ -48,13 +56,14 @@ export default function Modal({ open, onClose, title, subtitle, children }) {
                            hover:text-primary flex items-center justify-center transition-colors"
                 aria-label="Close"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M6 6l12 12M6 18L18 6" strokeLinecap="round" />
-                </svg>
+                <X size={16} strokeWidth={2.5} />
               </button>
             </div>
 
-            <div className="px-6 py-6">{children}</div>
+            {/* Body — the only scrolling region */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+              {children}
+            </div>
           </motion.div>
         </motion.div>
       )}

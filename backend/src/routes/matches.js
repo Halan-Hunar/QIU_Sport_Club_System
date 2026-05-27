@@ -172,6 +172,93 @@ async function generateSingleElim(tournamentId, registrations) {
   return { ok: true };
 }
 
+// Generate group-stage matches: divide registrations into N groups (A, B, …),
+// then run round-robin inside each group. Knockout bracket is generated later
+// via POST /matches/generate-knockout once all group matches are completed.
+async function generateGroupStage(tournamentId, registrations) {
+  if (registrations.length < 4) {
+    return { error: 'At least 4 teams are required for a group stage.' };
+  }
+
+  // Honour any group_name pre-set on the registration (admins may have
+  // hand-assigned groups when registering). Otherwise auto-split into ~equal
+  // groups targeting 4 teams per group, never fewer than 2 groups.
+  const preassigned = registrations.filter((r) => r.group_name);
+  let groups;
+  if (preassigned.length === registrations.length) {
+    const byName = new Map();
+    for (const r of registrations) {
+      if (!byName.has(r.group_name)) byName.set(r.group_name, []);
+      byName.get(r.group_name).push(r);
+    }
+    groups = [...byName.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, list]) => ({ name, teams: list }));
+  } else {
+    const sorted = [...registrations].sort((a, b) => {
+      const sa = a.seed ?? Number.POSITIVE_INFINITY;
+      const sb = b.seed ?? Number.POSITIVE_INFINITY;
+      return sa - sb;
+    });
+    // ~4 per group, at least 2 groups.
+    const groupCount = Math.max(2, Math.round(sorted.length / 4));
+    const sizes = new Array(groupCount).fill(0);
+    sorted.forEach((_, i) => { sizes[i % groupCount] += 1; });
+    if (sizes.some((s) => s < 2)) {
+      return { error: 'Could not divide teams evenly: each group needs at least 2 teams.' };
+    }
+    groups = sizes.map((_, i) => ({
+      name: String.fromCharCode(65 + i), // A, B, C…
+      teams: [],
+    }));
+    sorted.forEach((reg, i) => {
+      const gIdx = i % groupCount;
+      groups[gIdx].teams.push({ ...reg, group_name: groups[gIdx].name });
+    });
+  }
+
+  // Persist group assignments back onto tournament_teams (so the GET response
+  // and standings view see the right group_name).
+  for (const g of groups) {
+    for (const reg of g.teams) {
+      const { error } = await supabaseAdmin
+        .from('tournament_teams')
+        .update({ group_name: g.name })
+        .eq('tournament_id', tournamentId)
+        .eq('team_id', reg.team_id);
+      if (error) return { error: error.message };
+    }
+  }
+
+  const rows = [];
+  let matchNum = 1;
+  for (const g of groups) {
+    const schedule = roundRobinSchedule(g.teams);
+    schedule.forEach((round, rIdx) => {
+      round.forEach((pair) => {
+        rows.push({
+          tournament_id: tournamentId,
+          round: `Group ${g.name} · Round ${rIdx + 1}`,
+          match_number: matchNum++,
+          home_team_id: pair.home.team_id,
+          away_team_id: pair.away.team_id,
+          home_score: 0,
+          away_score: 0,
+          status: 'scheduled',
+        });
+      });
+    });
+  }
+
+  if (rows.length === 0) {
+    return { error: 'Group schedule produced no matches.' };
+  }
+
+  const { error } = await supabaseAdmin.from('matches').insert(rows);
+  if (error) return { error: error.message };
+  return { ok: true, groupCount: groups.length };
+}
+
 async function generateRoundRobin(tournamentId, registrations) {
   if (registrations.length < 2) {
     return { error: 'At least 2 teams must be registered.' };
@@ -295,6 +382,8 @@ router.post('/generate', requireAuth, requireAdmin, async (req, res) => {
     result = await generateSingleElim(tournament_id, registrations ?? []);
   } else if (tournament.format === 'round_robin') {
     result = await generateRoundRobin(tournament_id, registrations ?? []);
+  } else if (tournament.format === 'group_knockout') {
+    result = await generateGroupStage(tournament_id, registrations ?? []);
   } else {
     return res.status(501).json({
       error: 'Bracket generation for this format is not yet implemented.',
@@ -314,6 +403,79 @@ router.post('/generate', requireAuth, requireAdmin, async (req, res) => {
 
   logger.info(`Bracket generated: tournament ${tournament_id} (${tournament.format}) by ${req.user.email}`);
   res.status(201).json({ success: true });
+});
+
+// ─── POST /api/matches/generate-knockout ──────────────────────
+// Advance top finishers from a completed group stage into a single-elim bracket.
+// Body: { tournament_id, advance_per_group?: number } — defaults to 2.
+router.post('/generate-knockout', requireAuth, requireAdmin, async (req, res) => {
+  const { tournament_id, advance_per_group = 2 } = req.body ?? {};
+  if (!tournament_id) {
+    return res.status(400).json({ error: 'tournament_id is required' });
+  }
+
+  // Ensure all group-stage matches are finished.
+  const { data: groupMatches, error: gmErr } = await supabaseAdmin
+    .from('matches')
+    .select('id, status, round')
+    .eq('tournament_id', tournament_id)
+    .like('round', 'Group %');
+
+  if (gmErr) return res.status(500).json({ error: 'Failed to load matches' });
+  if (!groupMatches || groupMatches.length === 0) {
+    return res.status(400).json({ error: 'No group-stage matches found.' });
+  }
+  if (groupMatches.some((m) => m.status !== 'completed')) {
+    return res.status(400).json({ error: 'Finish all group-stage matches before generating knockout.' });
+  }
+
+  // Use the standings view to pick top N per group.
+  const { data: standings, error: sErr } = await supabaseAdmin
+    .from('tournament_standings')
+    .select('*')
+    .eq('tournament_id', tournament_id);
+
+  if (sErr) return res.status(500).json({ error: 'Failed to load standings' });
+
+  const byGroup = new Map();
+  for (const row of standings ?? []) {
+    if (!row.group_name) continue;
+    if (!byGroup.has(row.group_name)) byGroup.set(row.group_name, []);
+    byGroup.get(row.group_name).push(row);
+  }
+
+  const advancers = [];
+  let seed = 1;
+  for (const [, rows] of [...byGroup.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const sorted = rows.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
+      return b.goals_for - a.goals_for;
+    });
+    for (const row of sorted.slice(0, advance_per_group)) {
+      advancers.push({ team_id: row.team_id, seed: seed++ });
+    }
+  }
+
+  if (advancers.length < 2) {
+    return res.status(400).json({ error: 'Not enough advancers for a knockout stage.' });
+  }
+
+  // Delete any pre-existing knockout matches, then build the bracket.
+  await supabaseAdmin
+    .from('matches')
+    .delete()
+    .eq('tournament_id', tournament_id)
+    .not('round', 'like', 'Group %');
+
+  const result = await generateSingleElim(tournament_id, advancers);
+  if (result.error) {
+    logger.error(`Knockout generation failed: ${result.error}`);
+    return res.status(400).json({ error: result.error });
+  }
+
+  logger.info(`Knockout generated: tournament ${tournament_id} with ${advancers.length} advancers by ${req.user.email}`);
+  res.status(201).json({ success: true, advancers: advancers.length });
 });
 
 // ─── PATCH /api/matches/:id ───────────────────────────────────

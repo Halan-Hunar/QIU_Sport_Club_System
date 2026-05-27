@@ -21,6 +21,7 @@ const createTournamentSchema = z.object({
   start_date: isoDate.optional().nullable(),
   end_date: isoDate.optional().nullable(),
   description: z.string().trim().max(1000).optional().nullable(),
+  is_individual: z.boolean().default(false),
 });
 
 const updateTournamentSchema = createTournamentSchema
@@ -31,6 +32,11 @@ const registerTeamSchema = z.object({
   team_id: z.string().uuid(),
   seed: z.number().int().min(1).max(999).optional().nullable(),
   group_name: z.string().trim().max(10).optional().nullable(),
+});
+
+const registerPlayerSchema = z.object({
+  player_id: z.string().uuid(),
+  seed: z.number().int().min(1).max(999).optional().nullable(),
 });
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -88,7 +94,22 @@ router.get('/:id', async (req, res) => {
     return res.status(500).json({ error: 'Failed to fetch registered teams' });
   }
 
-  res.json({ tournament, teams: registrations ?? [] });
+  const { data: playerRegs, error: pErr } = await supabaseAdmin
+    .from('tournament_players')
+    .select('id, seed, player:players(id, name, jersey_number, position, photo_url, team_id)')
+    .eq('tournament_id', tournament.id)
+    .order('seed', { ascending: true, nullsFirst: false });
+
+  if (pErr) {
+    logger.error(`Fetch tournament players failed: ${pErr.message}`);
+    return res.status(500).json({ error: 'Failed to fetch registered players' });
+  }
+
+  res.json({
+    tournament,
+    teams: registrations ?? [],
+    players: playerRegs ?? [],
+  });
 });
 
 // ─── POST /api/tournaments ────────────────────────────────────
@@ -192,6 +213,50 @@ router.delete('/:id/teams/:teamId', requireAuth, requireAdmin, async (req, res) 
   }
 
   logger.info(`Team unregistered: ${req.params.teamId} from tournament ${req.params.id} by ${req.user.email}`);
+  res.json({ success: true });
+});
+
+// ─── POST /api/tournaments/:id/players ────────────────────────
+// Individual-sport registration (chess, table tennis, etc.).
+router.post('/:id/players', requireAuth, requireAdmin, async (req, res) => {
+  const parsed = registerPlayerSchema.safeParse(req.body);
+  if (!parsed.success) return sendValidationError(res, parsed);
+
+  const { data, error } = await supabaseAdmin
+    .from('tournament_players')
+    .insert({ ...parsed.data, tournament_id: req.params.id })
+    .select('id, seed, player:players(id, name, jersey_number, position, photo_url, team_id)')
+    .single();
+
+  if (error) {
+    logger.error(`Register player failed: ${error.message}`);
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Player is already registered' });
+    }
+    if (error.code === '23503') {
+      return res.status(404).json({ error: 'Tournament or player not found' });
+    }
+    return res.status(500).json({ error: 'Failed to register player' });
+  }
+
+  logger.info(`Player registered: ${parsed.data.player_id} → tournament ${req.params.id} by ${req.user.email}`);
+  res.status(201).json({ registration: data });
+});
+
+// ─── DELETE /api/tournaments/:id/players/:playerId ────────────
+router.delete('/:id/players/:playerId', requireAuth, requireAdmin, async (req, res) => {
+  const { error } = await supabaseAdmin
+    .from('tournament_players')
+    .delete()
+    .eq('tournament_id', req.params.id)
+    .eq('player_id', req.params.playerId);
+
+  if (error) {
+    logger.error(`Unregister player failed: ${error.message}`);
+    return res.status(500).json({ error: 'Failed to unregister player' });
+  }
+
+  logger.info(`Player unregistered: ${req.params.playerId} from tournament ${req.params.id} by ${req.user.email}`);
   res.json({ success: true });
 });
 

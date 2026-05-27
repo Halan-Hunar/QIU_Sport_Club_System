@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import { useTournamentStore } from '../store/tournamentStore';
+import { SPORTS } from '../constants/sports';
 
 const formatOptions = [
   { value: 'single_elim',    label: 'Single Elimination' },
   { value: 'double_elim',    label: 'Double Elimination' },
   { value: 'round_robin',    label: 'Round Robin' },
-  { value: 'group_knockout', label: 'Group Stage + Knockout' },
+  { value: 'group_knockout', label: 'Group Stage + Knockout (beta)' },
 ];
-
-const sportOptions = ['football', 'basketball', 'volleyball', 'tennis', 'cricket', 'esports'];
 
 const defaults = {
   name: '',
@@ -18,6 +17,7 @@ const defaults = {
   start_date: '',
   end_date: '',
   description: '',
+  is_individual: false,
 };
 
 export default function CreateTournamentModal({ open, onClose, tournament = null }) {
@@ -33,6 +33,7 @@ export default function CreateTournamentModal({ open, onClose, tournament = null
         start_date: tournament.start_date ?? '',
         end_date: tournament.end_date ?? '',
         description: tournament.description ?? '',
+        is_individual: tournament.is_individual ?? false,
       });
     } else {
       setForm(defaults);
@@ -49,6 +50,7 @@ export default function CreateTournamentModal({ open, onClose, tournament = null
       start_date: form.start_date || null,
       end_date: form.end_date || null,
       description: form.description.trim() || null,
+      is_individual: form.is_individual,
     };
     const result = tournament
       ? await updateTournament(tournament.id, payload)
@@ -87,8 +89,8 @@ export default function CreateTournamentModal({ open, onClose, tournament = null
               onChange={(e) => setForm({ ...form, sport_type: e.target.value })}
               className="sc-input"
             >
-              {sportOptions.map((s) => (
-                <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>
+              {SPORTS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </div>
@@ -105,6 +107,26 @@ export default function CreateTournamentModal({ open, onClose, tournament = null
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Individual-sport toggle */}
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.is_individual}
+              onChange={(e) => setForm({ ...form, is_individual: e.target.checked })}
+              className="w-4 h-4 accent-primary"
+            />
+            <span className="font-label text-sm font-semibold text-ink uppercase tracking-wider">
+              Individual sport (no teams)
+            </span>
+          </label>
+          {form.is_individual && (
+            <p className="text-xs text-ink-variant mt-1.5 ml-7">
+              Players will be registered individually, not as teams.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
