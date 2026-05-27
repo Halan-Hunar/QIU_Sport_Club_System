@@ -478,12 +478,12 @@ export default function TournamentDetail() {
 
           <div className="flex flex-col gap-2">
             <Link
-              to={`/tournaments/${id}/awards`}
+              to={`/tournaments/${id}/stats`}
               className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
                          hover:!bg-white/25 text-center"
             >
               <Trophy size={16} strokeWidth={2.25} />
-              Awards
+              Stats
             </Link>
             {isAdmin && (
               <>
@@ -653,14 +653,12 @@ export default function TournamentDetail() {
         </div>
       )}
 
-      {/* Bracket / Standings (team tournaments only — individual brackets TBD) */}
-      {!isIndividual && (
-      <>
+      {/* Bracket / Standings — now works for both team and individual tournaments. */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
         <h2 className="font-display text-headline-lg text-ink">
           {isBracketFormat ? 'Bracket' : 'Standings'}
         </h2>
-        {isAdmin && teams.length >= 2 && (
+        {isAdmin && (isIndividual ? players.length : teams.length) >= 2 && (
           <button
             onClick={handleGenerate}
             disabled={matchSaving}
@@ -700,7 +698,7 @@ export default function TournamentDetail() {
           </p>
           <p className="text-ink-variant mt-2 max-w-md mx-auto">
             {isAdmin
-              ? 'Register at least 2 teams, then generate the bracket.'
+              ? `Register at least 2 ${isIndividual ? 'players' : 'teams'}, then generate the bracket.`
               : 'Matches will appear here once the admin sets up the bracket.'}
           </p>
         </div>
@@ -712,7 +710,7 @@ export default function TournamentDetail() {
         />
       ) : (
         <div className="space-y-8">
-          <StandingsTable standings={standings} />
+          {!isIndividual && <StandingsTable standings={standings} />}
           <div>
             <h3 className="font-display text-headline-md text-ink mb-3">Fixtures</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -727,8 +725,6 @@ export default function TournamentDetail() {
             </div>
           </div>
         </div>
-      )}
-      </>
       )}
 
       <CreateTournamentModal

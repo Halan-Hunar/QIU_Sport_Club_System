@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -23,7 +24,7 @@ export const useTeamStore = create((set, get) => ({
   fetchTeams: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API}/api/teams`);
+      const res = await apiFetch(`${API}/api/teams`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load teams', loading: false });
@@ -38,7 +39,7 @@ export const useTeamStore = create((set, get) => ({
   fetchTeamById: async (id) => {
     set({ loading: true, error: null, current: null });
     try {
-      const res = await fetch(`${API}/api/teams/${id}`);
+      const res = await apiFetch(`${API}/api/teams/${id}`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load team', loading: false });
@@ -54,7 +55,7 @@ export const useTeamStore = create((set, get) => ({
   // that need a team's players without disrupting the active TeamDetail page.
   fetchRoster: async (id) => {
     try {
-      const res = await fetch(`${API}/api/teams/${id}`);
+      const res = await apiFetch(`${API}/api/teams/${id}`);
       if (!res.ok) return [];
       const data = await res.json();
       return data.players ?? [];
@@ -67,7 +68,7 @@ export const useTeamStore = create((set, get) => ({
   createTeam: async (payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/teams`, {
+      const res = await apiFetch(`${API}/api/teams`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -91,7 +92,7 @@ export const useTeamStore = create((set, get) => ({
   updateTeam: async (id, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/teams/${id}`, {
+      const res = await apiFetch(`${API}/api/teams/${id}`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -120,7 +121,7 @@ export const useTeamStore = create((set, get) => ({
   deleteTeam: async (id) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/teams/${id}`, {
+      const res = await apiFetch(`${API}/api/teams/${id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -144,7 +145,7 @@ export const useTeamStore = create((set, get) => ({
   addPlayer: async (teamId, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/teams/${teamId}/players`, {
+      const res = await apiFetch(`${API}/api/teams/${teamId}/players`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -173,7 +174,7 @@ export const useTeamStore = create((set, get) => ({
   updatePlayer: async (playerId, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/players/${playerId}`, {
+      const res = await apiFetch(`${API}/api/players/${playerId}`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -204,7 +205,7 @@ export const useTeamStore = create((set, get) => ({
   deletePlayer: async (playerId) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/players/${playerId}`, {
+      const res = await apiFetch(`${API}/api/players/${playerId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -240,7 +241,7 @@ export const useTeamStore = create((set, get) => ({
   setCaptain: async (teamId, playerId, tournamentId = null) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/teams/${teamId}/captain`, {
+      const res = await apiFetch(`${API}/api/teams/${teamId}/captain`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify({ player_id: playerId, tournament_id: tournamentId }),

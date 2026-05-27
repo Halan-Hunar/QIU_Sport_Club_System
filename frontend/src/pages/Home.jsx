@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trophy, Users, Swords, Calendar, CircleDot } from 'lucide-react';
+import {
+  Trophy, Users, Swords, Calendar, CircleDot, ArrowRight,
+} from 'lucide-react';
 import { useHomeStore } from '../store/homeStore';
+import { sportLabel } from '../constants/sports';
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -18,6 +21,12 @@ const formatLabels = {
 };
 
 const statusStyles = {
+  upcoming:  'bg-white/15 text-white',
+  active:    'bg-white/25 text-white',
+  completed: 'bg-white/10 text-white/80',
+};
+
+const tournamentCardStatusStyles = {
   upcoming:  'bg-secondary-container/50 text-secondary',
   active:    'bg-primary-container/30 text-primary',
   completed: 'bg-surface-low text-ink-variant',
@@ -31,18 +40,24 @@ function formatDateRange(start, end) {
   return fmt(start || end);
 }
 
-function StatPill({ label, value, loading }) {
+// Vertical stat block — value above, label below. Aligns cleanly in a grid.
+function HeroStat({ Icon, label, value, loading }) {
   return (
-    <div className="flex items-center gap-3 bg-white/15 backdrop-blur-sm
-                    border border-white/20 rounded-full px-4 py-2 min-w-[100px]">
+    <div className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-md
+                    px-4 py-3 flex flex-col items-start">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Icon size={12} strokeWidth={2} className="text-white/60" aria-hidden />
+        <span className="font-label text-label-md uppercase tracking-wider text-white/70">
+          {label}
+        </span>
+      </div>
       {loading ? (
-        <span className="h-5 w-8 bg-white/30 rounded animate-pulse" />
+        <span className="h-7 w-12 bg-white/20 rounded animate-pulse" />
       ) : (
-        <span className="font-display text-stats text-white tabular-nums">{value}</span>
+        <span className="font-display text-display-lg text-white leading-none tabular-nums">
+          {value ?? 0}
+        </span>
       )}
-      <span className="font-label text-label-md uppercase tracking-wider text-white/80">
-        {label}
-      </span>
     </div>
   );
 }
@@ -59,13 +74,13 @@ function TournamentMiniCard({ t }) {
                        group-hover:text-primary transition-colors truncate">
           {t.name}
         </h3>
-        <span className={`sc-chip capitalize ${statusStyles[t.status] ?? statusStyles.upcoming}`}>
+        <span className={`sc-chip capitalize ${tournamentCardStatusStyles[t.status] ?? tournamentCardStatusStyles.upcoming}`}>
           {t.status}
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5 mt-3">
-        <span className="sc-chip bg-surface-low text-ink-variant capitalize">
-          {t.sport_type}
+        <span className="sc-chip bg-surface-low text-ink-variant">
+          {sportLabel(t.sport_type)}
         </span>
         <span className="sc-chip bg-surface-low text-ink-variant">
           {formatLabels[t.format] ?? t.format}
@@ -84,6 +99,16 @@ export default function Home() {
 
   useEffect(() => { fetchHomeData(); }, [fetchHomeData]);
 
+  const featured = stats?.featured_tournament;
+  const isLoadingHero = loading && !stats;
+
+  // When a featured tournament exists, the hero shows ITS counts.
+  // Otherwise we fall back to cross-system totals so the page still feels alive.
+  const competitorLabel = featured?.is_individual ? 'Players' : 'Teams';
+  const competitorCount = featured ? featured.competitors_count : (stats?.total_teams ?? 0);
+  const matchesCount = featured ? featured.matches_played : (stats?.total_matches ?? 0);
+  const goalsCount = featured ? featured.goals_scored : (stats?.total_goals ?? 0);
+
   return (
     <div className="max-w-[1280px] mx-auto px-6 py-8 sm:py-12">
       {/* Hero */}
@@ -95,22 +120,40 @@ export default function Home() {
         <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full
                         bg-primary-container/30 blur-3xl pointer-events-none" />
         <div className="relative">
-          <span className="sc-chip bg-live/20 text-white">
-            <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse-dot" />
-            Live Now
-          </span>
-          <h1 className="font-display text-headline-lg sm:text-display-lg mt-4 leading-tight">
-            Inter-Faculty Championship
-          </h1>
+          {/* Header chip */}
+          {isLoadingHero ? (
+            <span className="inline-block h-6 w-24 bg-white/20 rounded-full animate-pulse" />
+          ) : featured ? (
+            <span className={`sc-chip capitalize ${statusStyles[featured.status] ?? statusStyles.upcoming}`}>
+              {featured.status === 'active' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse-dot" />
+              )}
+              {featured.status === 'active' ? 'Live · Featured' : 'Featured Tournament'}
+            </span>
+          ) : (
+            <span className="sc-chip bg-white/15 text-white">Welcome</span>
+          )}
+
+          {/* Title — featured tournament's name, or a neutral fallback */}
+          {isLoadingHero ? (
+            <div className="h-12 w-2/3 bg-white/20 rounded animate-pulse mt-4" />
+          ) : (
+            <h1 className="font-display text-headline-lg sm:text-display-lg mt-4 leading-tight">
+              {featured?.name ?? 'Sport Club Hub'}
+            </h1>
+          )}
+
           <p className="text-white/80 mt-3 max-w-2xl">
-            Real-time scores, rosters, and standings for every competition —
-            built for the players, coaches, and the crowd.
+            {featured
+              ? `Real-time scores, rosters, and standings — built for the players, coaches, and the crowd.`
+              : `Live scores, rosters, brackets, and stats for every competition.`}
           </p>
 
-          <div className="flex flex-wrap gap-3 mt-6">
-            <StatPill label="Teams"          value={stats?.total_teams ?? 0}   loading={loading && !stats} />
-            <StatPill label="Matches Played" value={stats?.total_matches ?? 0} loading={loading && !stats} />
-            <StatPill label="Goals"          value={stats?.total_goals ?? 0}   loading={loading && !stats} />
+          {/* Stats grid — equal-width vertical blocks, properly aligned */}
+          <div className="grid grid-cols-3 gap-3 mt-6 max-w-xl">
+            <HeroStat Icon={Users}     label={competitorLabel}    value={competitorCount} loading={isLoadingHero} />
+            <HeroStat Icon={Swords}    label="Matches Played"     value={matchesCount}    loading={isLoadingHero} />
+            <HeroStat Icon={CircleDot} label="Goals"              value={goalsCount}      loading={isLoadingHero} />
           </div>
 
           {error && (
@@ -120,13 +163,21 @@ export default function Home() {
           )}
 
           <div className="flex flex-wrap gap-3 mt-8">
+            {featured ? (
+              <Link to={`/tournaments/${featured.id}`}
+                    className="sc-btn-primary bg-primary-container text-primary-on-container hover:bg-white">
+                Open {featured.name}
+                <ArrowRight size={14} strokeWidth={2.5} />
+              </Link>
+            ) : (
+              <Link to="/tournaments"
+                    className="sc-btn-primary bg-primary-container text-primary-on-container hover:bg-white">
+                Browse Tournaments
+              </Link>
+            )}
             <Link to="/teams"
-                  className="sc-btn-primary bg-primary-container text-primary-on-container hover:bg-white">
-              View Teams
-            </Link>
-            <Link to="/tournaments"
                   className="sc-btn-secondary !bg-white/10 !border-white/30 !text-white hover:!bg-white/20">
-              Tournaments
+              View Teams
             </Link>
           </div>
         </div>
@@ -166,7 +217,7 @@ export default function Home() {
           </div>
           <h3 className="font-display text-headline-md text-ink">Tournaments</h3>
           <p className="text-sm text-ink-variant mt-1">
-            Brackets, fixtures and results for every inter-faculty championship.
+            Brackets, fixtures and results for every competition we run.
           </p>
         </motion.div>
       </section>

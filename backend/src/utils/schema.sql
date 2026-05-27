@@ -100,8 +100,10 @@ create table public.matches (
   tournament_id uuid not null references public.tournaments(id) on delete cascade,
   round text,                -- e.g. "Quarter Final", "Group Stage"
   match_number int,          -- order within round
-  home_team_id uuid references public.teams(id),
-  away_team_id uuid references public.teams(id),
+  home_team_id   uuid references public.teams(id),    -- team competitor (null for individual sports)
+  away_team_id   uuid references public.teams(id),
+  home_player_id uuid references public.players(id),  -- individual-sport competitor
+  away_player_id uuid references public.players(id),
   home_score int not null default 0,
   away_score int not null default 0,
   status match_status not null default 'scheduled',
@@ -109,8 +111,9 @@ create table public.matches (
   started_at timestamptz,
   ended_at timestamptz,
   location text,
-  winner_id uuid references public.teams(id),
-  next_match_id uuid references public.matches(id), -- bracket progression
+  winner_id        uuid references public.teams(id),   -- winning team
+  winner_player_id uuid references public.players(id), -- or winning player
+  next_match_id uuid references public.matches(id),    -- bracket progression
   created_at timestamptz not null default now()
 );
 
@@ -283,6 +286,10 @@ create trigger on_auth_user_created
 alter table public.players alter column team_id drop not null;
 alter table public.players add column if not exists notes text;
 alter table public.players add column if not exists sports text[] not null default '{}';
+
+alter table public.matches add column if not exists home_player_id   uuid references public.players(id);
+alter table public.matches add column if not exists away_player_id   uuid references public.players(id);
+alter table public.matches add column if not exists winner_player_id uuid references public.players(id);
 
 alter table public.tournaments
   add column if not exists is_individual boolean not null default false;

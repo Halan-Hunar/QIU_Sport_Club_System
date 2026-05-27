@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -23,7 +24,7 @@ export const useTournamentStore = create((set, get) => ({
   fetchTournaments: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API}/api/tournaments`);
+      const res = await apiFetch(`${API}/api/tournaments`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load tournaments', loading: false });
@@ -38,7 +39,7 @@ export const useTournamentStore = create((set, get) => ({
   fetchTournamentById: async (id) => {
     set({ loading: true, error: null, current: null });
     try {
-      const res = await fetch(`${API}/api/tournaments/${id}`);
+      const res = await apiFetch(`${API}/api/tournaments/${id}`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load tournament', loading: false });
@@ -54,7 +55,7 @@ export const useTournamentStore = create((set, get) => ({
   createTournament: async (payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/tournaments`, {
+      const res = await apiFetch(`${API}/api/tournaments`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -78,7 +79,7 @@ export const useTournamentStore = create((set, get) => ({
   updateTournament: async (id, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/tournaments/${id}`, {
+      const res = await apiFetch(`${API}/api/tournaments/${id}`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -107,7 +108,7 @@ export const useTournamentStore = create((set, get) => ({
   deleteTournament: async (id) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/tournaments/${id}`, {
+      const res = await apiFetch(`${API}/api/tournaments/${id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -131,7 +132,7 @@ export const useTournamentStore = create((set, get) => ({
   registerTeam: async (tournamentId, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/tournaments/${tournamentId}/teams`, {
+      const res = await apiFetch(`${API}/api/tournaments/${tournamentId}/teams`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -192,7 +193,7 @@ export const useTournamentStore = create((set, get) => ({
   registerPlayer: async (tournamentId, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/tournaments/${tournamentId}/players`, {
+      const res = await apiFetch(`${API}/api/tournaments/${tournamentId}/players`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),

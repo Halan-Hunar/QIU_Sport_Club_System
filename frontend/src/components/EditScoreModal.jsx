@@ -76,10 +76,17 @@ export default function EditScoreModal({ open, onClose, match }) {
 
   if (!match) return null;
 
-  const homeTeam = match.home_team;
-  const awayTeam = match.away_team;
-  const homeWins = match.status === 'completed' && match.winner_id === match.home_team_id;
-  const awayWins = match.status === 'completed' && match.winner_id === match.away_team_id;
+  // Use either a team or player join as the competitor — same shape downstream.
+  const home = match.home_team ?? match.home_player ?? null;
+  const away = match.away_team ?? match.away_player ?? null;
+  const homeWins = match.status === 'completed' && (
+    (match.winner_id && match.winner_id === match.home_team_id) ||
+    (match.winner_player_id && match.winner_player_id === match.home_player_id)
+  );
+  const awayWins = match.status === 'completed' && (
+    (match.winner_id && match.winner_id === match.away_team_id) ||
+    (match.winner_player_id && match.winner_player_id === match.away_player_id)
+  );
 
   const handleConfirm = async () => {
     const payload = {
@@ -105,13 +112,13 @@ export default function EditScoreModal({ open, onClose, match }) {
           <div className="text-center min-w-0">
             <p className={`font-display text-headline-md truncate
                           ${homeWins ? 'text-ink' : 'text-ink-variant'}`}>
-              {homeTeam?.name ?? 'TBD'}
+              {home?.name ?? 'TBD'}
             </p>
             {editing ? (
               <Stepper
                 value={form.home_score}
                 onChange={(v) => setForm({ ...form, home_score: v })}
-                disabled={!homeTeam}
+                disabled={!home}
               />
             ) : (
               <p className="font-display text-4xl text-ink mt-2 tabular-nums">
@@ -125,13 +132,13 @@ export default function EditScoreModal({ open, onClose, match }) {
           <div className="text-center min-w-0">
             <p className={`font-display text-headline-md truncate
                           ${awayWins ? 'text-ink' : 'text-ink-variant'}`}>
-              {awayTeam?.name ?? 'TBD'}
+              {away?.name ?? 'TBD'}
             </p>
             {editing ? (
               <Stepper
                 value={form.away_score}
                 onChange={(v) => setForm({ ...form, away_score: v })}
-                disabled={!awayTeam}
+                disabled={!away}
               />
             ) : (
               <p className="font-display text-4xl text-ink mt-2 tabular-nums">

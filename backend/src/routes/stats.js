@@ -10,13 +10,24 @@ const headCount = (table, filters = {}) => {
   return q;
 };
 
+// Which stat cards apply to a given sport / format.
+function applicableStats(sportType, isIndividual) {
+  const stats = ['champion', 'most_wins'];
+  if (!isIndividual) {
+    if (['football', 'basketball', 'volleyball', 'handball'].includes(sportType)) {
+      stats.push('top_scorer');
+    }
+    if (sportType === 'football') {
+      stats.push('clean_sheet');
+    }
+  }
+  return stats;
+}
+
 // ─── GET /api/stats ───────────────────────────────────────────
-// Aggregate metrics for the public Stats page + Admin dashboard.
+// Cross-tournament rollup used by the public Stats overview and admin dash.
 router.get('/', async (_req, res) => {
-  // ── Top scorers ────────────────────────────────────────────
-  // Fetch all goal events with joined player + team; aggregate in JS.
-  // Tournament size is small enough that pulling rows is fine; if this ever
-  // becomes hot we can move it into a Postgres function or materialised view.
+  // Top scorers across all tournaments.
   const { data: goalRows, error: goalsErr } = await supabaseAdmin
     .from('match_events')
     .select(`
@@ -50,7 +61,7 @@ router.get('/', async (_req, res) => {
     .sort((a, b) => b.goal_count - a.goal_count)
     .slice(0, 10);
 
-  // ── Most wins ──────────────────────────────────────────────
+  // Most wins across all tournaments.
   const { data: winnerRows, error: winsErr } = await supabaseAdmin
     .from('matches')
     .select('winner_id, winner:teams!matches_winner_id_fkey(id, name, primary_color)')
@@ -78,7 +89,7 @@ router.get('/', async (_req, res) => {
     .sort((a, b) => b.win_count - a.win_count)
     .slice(0, 10);
 
-  // ── Recent results ─────────────────────────────────────────
+  // Recent results.
   const { data: recentMatches, error: recentErr } = await supabaseAdmin
     .from('matches')
     .select(`
@@ -108,7 +119,7 @@ router.get('/', async (_req, res) => {
     ended_at: m.ended_at,
   }));
 
-  // ── Recent activity (admin dashboard feed) ─────────────────
+  // Recent activity for admin dashboard.
   const { data: activityRows, error: actErr } = await supabaseAdmin
     .from('match_events')
     .select(`
@@ -141,7 +152,6 @@ router.get('/', async (_req, res) => {
     tournament_name: a.match?.tournament?.name ?? null,
   }));
 
-  // ── Totals + admin KPIs ────────────────────────────────────
   const [teamsRes, playersRes, tournamentsRes, matchesRes,
          goalsTotalRes, activeTournRes, liveMatchesRes] = await Promise.all([
     headCount('teams'),
@@ -164,6 +174,197 @@ router.get('/', async (_req, res) => {
   };
 
   res.json({ top_scorers, most_wins, recent_results, recent_activity, totals });
+});
+
+// ─── GET /api/stats/tournament/:id ────────────────────────────
+// Auto-computed per-tournament stats. No manual award storage — everything
+// is derived from match + match_event rows in real time.
+router.get('/tournament/:id', async (req, res) => {
+  const tournamentId = req.params.id;
+
+  const { data: tournament, error: tErr } = await supabaseAdmin
+    .from('tournaments')
+    .select('id, name, sport_type, is_individual, format, status, start_date, end_date')
+    .eq('id', tournamentId)
+    .single();
+  if (tErr || !tournament) {
+    return res.status(404).json({ error: 'Tournament not found' });
+  }
+
+  const applicable = applicableStats(tournament.sport_type, tournament.is_individual);
+  const out = {
+    tournament,
+    applicable,
+    champion: null,
+    top_scorers: [],
+    clean_sheets: [],
+    most_wins: [],
+  };
+
+  // ── Champion ───────────────────────────────────────────────
+  if (applicable.includes('champion')) {
+    if (tournament.format === 'round_robin') {
+      const { data: standings } = await supabaseAdmin
+        .from('tournament_standings')
+        .select('team_id, team_name, primary_color, points, goal_diff, goals_for')
+        .eq('tournament_id', tournamentId);
+      if (standings?.length && tournament.status === 'completed') {
+        const top = [...standings].sort(
+          (a, b) => b.points - a.points
+            || b.goal_diff - a.goal_diff
+            || b.goals_for - a.goals_for,
+        )[0];
+        if (top) out.champion = { kind: 'team', name: top.team_name, color: top.primary_color };
+      }
+    } else {
+      // Elim formats: the final match has no next_match_id; pick the highest-numbered completed one.
+      const { data: finals } = await supabaseAdmin
+        .from('matches')
+        .select(`
+          match_number, winner_id, winner_player_id,
+          winner_team:teams!matches_winner_id_fkey(id, name, primary_color),
+          winner_player:players!matches_winner_player_id_fkey(id, name, jersey_number)
+        `)
+        .eq('tournament_id', tournamentId)
+        .is('next_match_id', null)
+        .eq('status', 'completed')
+        .order('match_number', { ascending: false })
+        .limit(1);
+      const final = finals?.[0];
+      if (final?.winner_team) {
+        out.champion = { kind: 'team', name: final.winner_team.name, color: final.winner_team.primary_color };
+      } else if (final?.winner_player) {
+        out.champion = { kind: 'player', name: final.winner_player.name, jersey_number: final.winner_player.jersey_number };
+      }
+    }
+  }
+
+  // ── Top scorers ────────────────────────────────────────────
+  if (applicable.includes('top_scorer')) {
+    const { data: matchIds } = await supabaseAdmin
+      .from('matches')
+      .select('id')
+      .eq('tournament_id', tournamentId);
+    const ids = (matchIds ?? []).map((m) => m.id);
+    if (ids.length > 0) {
+      const { data: goals } = await supabaseAdmin
+        .from('match_events')
+        .select(`
+          player_id,
+          player:players(id, name, jersey_number),
+          team:teams(id, name, primary_color)
+        `)
+        .in('match_id', ids)
+        .eq('event_type', 'goal');
+      const map = new Map();
+      for (const g of goals ?? []) {
+        if (!g.player_id) continue;
+        const cur = map.get(g.player_id) ?? {
+          player_id: g.player_id,
+          player_name: g.player?.name ?? null,
+          jersey_number: g.player?.jersey_number ?? null,
+          team_name: g.team?.name ?? null,
+          team_color: g.team?.primary_color ?? null,
+          goal_count: 0,
+        };
+        cur.goal_count += 1;
+        map.set(g.player_id, cur);
+      }
+      out.top_scorers = [...map.values()].sort((a, b) => b.goal_count - a.goal_count);
+    }
+  }
+
+  // ── Clean sheets ───────────────────────────────────────────
+  if (applicable.includes('clean_sheet')) {
+    const { data: matches } = await supabaseAdmin
+      .from('matches')
+      .select(`
+        home_team_id, away_team_id, home_score, away_score,
+        home_team:teams!matches_home_team_id_fkey(id, name, primary_color),
+        away_team:teams!matches_away_team_id_fkey(id, name, primary_color)
+      `)
+      .eq('tournament_id', tournamentId)
+      .eq('status', 'completed');
+    const map = new Map();
+    for (const m of matches ?? []) {
+      if (m.away_score === 0 && m.home_team) {
+        const cur = map.get(m.home_team.id) ?? {
+          team_id: m.home_team.id,
+          team_name: m.home_team.name,
+          team_color: m.home_team.primary_color,
+          clean_sheet_count: 0,
+        };
+        cur.clean_sheet_count += 1;
+        map.set(m.home_team.id, cur);
+      }
+      if (m.home_score === 0 && m.away_team) {
+        const cur = map.get(m.away_team.id) ?? {
+          team_id: m.away_team.id,
+          team_name: m.away_team.name,
+          team_color: m.away_team.primary_color,
+          clean_sheet_count: 0,
+        };
+        cur.clean_sheet_count += 1;
+        map.set(m.away_team.id, cur);
+      }
+    }
+    out.clean_sheets = [...map.values()].sort((a, b) => b.clean_sheet_count - a.clean_sheet_count);
+  }
+
+  // ── Most wins ──────────────────────────────────────────────
+  if (applicable.includes('most_wins')) {
+    if (tournament.is_individual) {
+      const { data: m } = await supabaseAdmin
+        .from('matches')
+        .select(`
+          winner_player_id,
+          winner_player:players!matches_winner_player_id_fkey(id, name, jersey_number)
+        `)
+        .eq('tournament_id', tournamentId)
+        .eq('status', 'completed')
+        .not('winner_player_id', 'is', null);
+      const map = new Map();
+      for (const row of m ?? []) {
+        const id = row.winner_player_id;
+        const cur = map.get(id) ?? {
+          kind: 'player',
+          id,
+          name: row.winner_player?.name ?? null,
+          jersey_number: row.winner_player?.jersey_number ?? null,
+          win_count: 0,
+        };
+        cur.win_count += 1;
+        map.set(id, cur);
+      }
+      out.most_wins = [...map.values()].sort((a, b) => b.win_count - a.win_count);
+    } else {
+      const { data: m } = await supabaseAdmin
+        .from('matches')
+        .select(`
+          winner_id,
+          winner_team:teams!matches_winner_id_fkey(id, name, primary_color)
+        `)
+        .eq('tournament_id', tournamentId)
+        .eq('status', 'completed')
+        .not('winner_id', 'is', null);
+      const map = new Map();
+      for (const row of m ?? []) {
+        const id = row.winner_id;
+        const cur = map.get(id) ?? {
+          kind: 'team',
+          id,
+          name: row.winner_team?.name ?? null,
+          color: row.winner_team?.primary_color ?? null,
+          win_count: 0,
+        };
+        cur.win_count += 1;
+        map.set(id, cur);
+      }
+      out.most_wins = [...map.values()].sort((a, b) => b.win_count - a.win_count);
+    }
+  }
+
+  res.json(out);
 });
 
 export default router;

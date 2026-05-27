@@ -14,25 +14,47 @@ const STATUSES = [
   { value: 'postponed', label: 'Postponed', activeClass: 'bg-secondary-container/40 text-secondary' },
 ];
 
-function ScoreSide({ team, score, winner }) {
+function asCompetitor(team, player) {
+  if (team) {
+    return {
+      name: team.name,
+      primary_color: team.primary_color,
+      secondary_color: team.secondary_color,
+      initial: team.name?.charAt(0).toUpperCase() ?? '?',
+    };
+  }
+  if (player) {
+    return {
+      name: player.name,
+      primary_color: '#577b99',
+      secondary_color: '#3d4850',
+      initial: player.jersey_number != null
+        ? String(player.jersey_number).padStart(2, '0')
+        : (player.name?.charAt(0).toUpperCase() ?? '?'),
+    };
+  }
+  return null;
+}
+
+function ScoreSide({ competitor, score, winner }) {
   return (
     <div className="text-center min-w-0">
-      {team ? (
+      {competitor ? (
         <span
           className="inline-flex w-12 h-12 rounded-full items-center justify-center
                      text-white font-display text-lg border border-outline-variant/40"
           style={{
-            background: `linear-gradient(135deg, ${team.primary_color}, ${team.secondary_color})`,
+            background: `linear-gradient(135deg, ${competitor.primary_color}, ${competitor.secondary_color})`,
           }}
         >
-          {team.name.charAt(0).toUpperCase()}
+          {competitor.initial}
         </span>
       ) : (
         <span className="inline-block w-12 h-12 rounded-full bg-surface-low border border-dashed
                          border-outline-variant" />
       )}
       <p className={`mt-2 text-sm truncate ${winner ? 'font-semibold text-ink' : 'text-ink-variant'}`}>
-        {team?.name ?? 'TBD'}
+        {competitor?.name ?? 'TBD'}
       </p>
       <p className="font-display text-3xl text-ink mt-1 tabular-nums">{score ?? 0}</p>
     </div>
@@ -111,8 +133,17 @@ export default function MatchDetailModal({ open, onClose, match: matchProp, isAd
 
   if (!match) return null;
 
-  const homeWins = match.status === 'completed' && match.winner_id === match.home_team_id;
-  const awayWins = match.status === 'completed' && match.winner_id === match.away_team_id;
+  const isPlayerMatch = !!(match.home_player_id || match.away_player_id);
+  const home = asCompetitor(match.home_team, match.home_player);
+  const away = asCompetitor(match.away_team, match.away_player);
+  const homeWins = match.status === 'completed' && (
+    (match.winner_id && match.winner_id === match.home_team_id) ||
+    (match.winner_player_id && match.winner_player_id === match.home_player_id)
+  );
+  const awayWins = match.status === 'completed' && (
+    (match.winner_id && match.winner_id === match.away_team_id) ||
+    (match.winner_player_id && match.winner_player_id === match.away_player_id)
+  );
   const currentStatusMeta = STATUSES.find((s) => s.value === match.status);
 
   const handleDeleteEvent = async (ev) => {
@@ -134,9 +165,9 @@ export default function MatchDetailModal({ open, onClose, match: matchProp, isAd
           {/* Scoreboard */}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4
                           bg-surface-low rounded-md p-4">
-            <ScoreSide team={match.home_team} score={match.home_score} winner={homeWins} />
+            <ScoreSide competitor={home} score={match.home_score} winner={homeWins} />
             <span className="font-display text-headline-md text-ink-variant">vs</span>
-            <ScoreSide team={match.away_team} score={match.away_score} winner={awayWins} />
+            <ScoreSide competitor={away} score={match.away_score} winner={awayWins} />
           </div>
 
           {/* Status — admin gets the inline segmented control; viewers get a chip */}
@@ -156,28 +187,34 @@ export default function MatchDetailModal({ open, onClose, match: matchProp, isAd
             </div>
           )}
 
-          {/* Admin actions */}
+          {/* Admin actions — Log Event is football-style (goals/cards/subs)
+              and not meaningful for solo sports like chess, so we hide it there. */}
           {isAdmin && (
             <div className="flex gap-2">
-              <button onClick={() => setLogOpen(true)} className="sc-btn-secondary flex-1">
-                Log Event
-              </button>
+              {!isPlayerMatch && (
+                <button onClick={() => setLogOpen(true)} className="sc-btn-secondary flex-1">
+                  Log Event
+                </button>
+              )}
               <button onClick={() => setEditOpen(true)} className="sc-btn-primary flex-1">
                 Edit Score
               </button>
             </div>
           )}
 
-          <div>
-            <p className="font-label text-label-md uppercase tracking-wider text-ink-variant mb-2">
-              Event Feed
-            </p>
-            <MatchEventLog
-              matchId={match.id}
-              isAdmin={isAdmin}
-              onDelete={handleDeleteEvent}
-            />
-          </div>
+          {/* Event feed only applies to team / goal-based matches. */}
+          {!isPlayerMatch && (
+            <div>
+              <p className="font-label text-label-md uppercase tracking-wider text-ink-variant mb-2">
+                Event Feed
+              </p>
+              <MatchEventLog
+                matchId={match.id}
+                isAdmin={isAdmin}
+                onDelete={handleDeleteEvent}
+              />
+            </div>
+          )}
         </div>
       </Modal>
 

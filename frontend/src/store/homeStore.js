@@ -1,9 +1,11 @@
 import { create } from 'zustand';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
 export const useHomeStore = create((set) => ({
-  stats: null,           // { total_teams, total_matches, total_goals, active_tournaments }
+  // /api/match-events/stats now includes featured_tournament alongside totals.
+  stats: null,
   upcoming: [],          // up to 4 upcoming/active tournaments
   loading: false,
   error: null,
@@ -12,8 +14,8 @@ export const useHomeStore = create((set) => ({
     set({ loading: true, error: null });
     try {
       const [statsRes, tournamentsRes] = await Promise.all([
-        fetch(`${API}/api/match-events/stats`),
-        fetch(`${API}/api/tournaments`),
+        apiFetch(`${API}/api/match-events/stats`),
+        apiFetch(`${API}/api/tournaments`),
       ]);
       const statsData = await statsRes.json();
       const tournamentsData = await tournamentsRes.json();

@@ -3,6 +3,7 @@
 //   alter publication supabase_realtime add table public.matches;
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -29,7 +30,7 @@ export const useMatchStore = create((set, get) => ({
   fetchMatches: async (tournamentId) => {
     set({ loading: true, error: null, tournamentId });
     try {
-      const res = await fetch(`${API}/api/matches?tournament_id=${tournamentId}`);
+      const res = await apiFetch(`${API}/api/matches?tournament_id=${tournamentId}`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load matches', loading: false });
@@ -43,7 +44,7 @@ export const useMatchStore = create((set, get) => ({
 
   fetchStandings: async (tournamentId) => {
     try {
-      const res = await fetch(`${API}/api/matches/standings?tournament_id=${tournamentId}`);
+      const res = await apiFetch(`${API}/api/matches/standings?tournament_id=${tournamentId}`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load standings' });
@@ -59,7 +60,7 @@ export const useMatchStore = create((set, get) => ({
   generateBracket: async (tournamentId) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/matches/generate`, {
+      const res = await apiFetch(`${API}/api/matches/generate`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify({ tournament_id: tournamentId }),
@@ -81,7 +82,7 @@ export const useMatchStore = create((set, get) => ({
   updateMatch: async (matchId, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/matches/${matchId}`, {
+      const res = await apiFetch(`${API}/api/matches/${matchId}`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useMatchStore } from './matchStore';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -25,7 +26,7 @@ export const useEventStore = create((set, get) => ({
   fetchEvents: async (matchId) => {
     set({ loading: true, error: null, matchId });
     try {
-      const res = await fetch(`${API}/api/match-events?match_id=${matchId}`);
+      const res = await apiFetch(`${API}/api/match-events?match_id=${matchId}`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load events', loading: false });
@@ -40,7 +41,7 @@ export const useEventStore = create((set, get) => ({
   logEvent: async (payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/match-events`, {
+      const res = await apiFetch(`${API}/api/match-events`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -79,7 +80,7 @@ export const useEventStore = create((set, get) => ({
   deleteEvent: async (eventId) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/match-events/${eventId}`, {
+      const res = await apiFetch(`${API}/api/match-events/${eventId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });

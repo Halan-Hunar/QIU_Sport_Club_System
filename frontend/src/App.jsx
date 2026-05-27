@@ -10,7 +10,7 @@ import Teams from './pages/Teams';
 import TeamDetail from './pages/TeamDetail';
 import Tournaments from './pages/Tournaments';
 import TournamentDetail from './pages/TournamentDetail';
-import Awards from './pages/Awards';
+import TournamentStats from './pages/TournamentStats';
 import Players from './pages/Players';
 import Stats from './pages/Stats';
 import AdminDashboard from './pages/AdminDashboard';
@@ -46,7 +46,9 @@ function App() {
 
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:id" element={<TournamentDetail />} />
-        <Route path="/tournaments/:id/awards" element={<Awards />} />
+        <Route path="/tournaments/:id/stats" element={<TournamentStats />} />
+        {/* Old /awards path kept as a redirect for any external links. */}
+        <Route path="/tournaments/:id/awards" element={<Navigate to="../stats" replace />} />
 
         <Route path="/stats" element={<Stats />} />
 

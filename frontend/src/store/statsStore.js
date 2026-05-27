@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -14,7 +15,7 @@ export const useStatsStore = create((set) => ({
   fetchStats: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API}/api/stats`);
+      const res = await apiFetch(`${API}/api/stats`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load stats', loading: false });

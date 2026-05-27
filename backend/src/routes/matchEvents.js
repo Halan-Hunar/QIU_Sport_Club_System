@@ -21,17 +21,18 @@ const sendValidationError = (res, parsed) =>
   res.status(400).json({ error: parsed.error.errors[0].message });
 
 // ─── GET /api/match-events/stats ──────────────────────────────
-// Aggregate counts for Home page. Uses head:true count queries so we never
-// pull row payloads. Note: in supabase-js v2 you must call .select() before
-// any filter methods (.eq, etc.) — .from() alone returns a query builder
-// that doesn't expose filters yet.
+// Aggregate counts + a "featured tournament" block for the Home page.
+// The featured tournament is whichever tournament makes sense to highlight:
+// the most recent active one, else the next upcoming one, else null.
 router.get('/stats', async (_req, res) => {
-  const headCount = (table, filters = {}) => {
+  const headCount = (table, filters = {}, modifier) => {
     let q = supabaseAdmin.from(table).select('*', { count: 'exact', head: true });
     for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+    if (modifier) q = modifier(q);
     return q;
   };
 
+  // ── Cross-tournament totals ────────────────────────────────
   const [teamsRes, completedRes, goalsRes, activeRes, upcomingRes] = await Promise.all([
     headCount('teams'),
     headCount('matches', { status: 'completed' }),
@@ -47,11 +48,61 @@ router.get('/stats', async (_req, res) => {
     return res.status(500).json({ error: 'Failed to load stats' });
   }
 
+  // ── Featured tournament: active first, then upcoming ────────
+  let featured = null;
+  {
+    const { data: actives } = await supabaseAdmin
+      .from('tournaments')
+      .select('id, name, sport_type, is_individual, status, format, start_date, end_date')
+      .eq('status', 'active')
+      .order('start_date', { ascending: false, nullsFirst: false })
+      .limit(1);
+    if (actives?.[0]) featured = actives[0];
+  }
+  if (!featured) {
+    const { data: upcoming } = await supabaseAdmin
+      .from('tournaments')
+      .select('id, name, sport_type, is_individual, status, format, start_date, end_date')
+      .eq('status', 'upcoming')
+      .order('start_date', { ascending: true, nullsFirst: false })
+      .limit(1);
+    if (upcoming?.[0]) featured = upcoming[0];
+  }
+
+  if (featured) {
+    // Per-tournament counts.
+    const competitorTable = featured.is_individual ? 'tournament_players' : 'tournament_teams';
+    const [matchesPlayed, matchIdsRes, competitorRes] = await Promise.all([
+      headCount('matches', { tournament_id: featured.id, status: 'completed' }),
+      supabaseAdmin.from('matches').select('id').eq('tournament_id', featured.id),
+      headCount(competitorTable, { tournament_id: featured.id }),
+    ]);
+
+    let goalsCount = 0;
+    const ids = (matchIdsRes.data ?? []).map((m) => m.id);
+    if (ids.length) {
+      const { count } = await supabaseAdmin
+        .from('match_events')
+        .select('*', { count: 'exact', head: true })
+        .in('match_id', ids)
+        .eq('event_type', 'goal');
+      goalsCount = count ?? 0;
+    }
+
+    featured = {
+      ...featured,
+      competitors_count: competitorRes.count ?? 0,
+      matches_played: matchesPlayed.count ?? 0,
+      goals_scored: goalsCount,
+    };
+  }
+
   res.json({
     total_teams: teamsRes.count ?? 0,
     total_matches: completedRes.count ?? 0,
     total_goals: goalsRes.count ?? 0,
     active_tournaments: (activeRes.count ?? 0) + (upcomingRes.count ?? 0),
+    featured_tournament: featured,
   });
 });
 

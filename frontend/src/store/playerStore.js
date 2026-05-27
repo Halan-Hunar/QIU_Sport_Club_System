@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '../lib/api';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -43,7 +44,7 @@ export const usePlayerStore = create((set, get) => ({
   fetchPlayerDetail: async (id) => {
     set({ loading: true, error: null, detail: null });
     try {
-      const res = await fetch(`${API}/api/players/${id}`);
+      const res = await apiFetch(`${API}/api/players/${id}`);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load player', loading: false });
@@ -59,7 +60,7 @@ export const usePlayerStore = create((set, get) => ({
   createPlayer: async (payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/players`, {
+      const res = await apiFetch(`${API}/api/players`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -80,7 +81,7 @@ export const usePlayerStore = create((set, get) => ({
   updatePlayer: async (id, payload) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/players/${id}`, {
+      const res = await apiFetch(`${API}/api/players/${id}`, {
         method: 'PATCH',
         headers: jsonHeaders(),
         body: JSON.stringify(payload),
@@ -107,7 +108,7 @@ export const usePlayerStore = create((set, get) => ({
   deletePlayer: async (id) => {
     set({ saving: true, error: null });
     try {
-      const res = await fetch(`${API}/api/players/${id}`, {
+      const res = await apiFetch(`${API}/api/players/${id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
