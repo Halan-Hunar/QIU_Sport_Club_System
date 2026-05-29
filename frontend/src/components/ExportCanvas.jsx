@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from 'react';
-import { Check, Trophy, Target, ShieldCheck } from 'lucide-react';
+import { Trophy, Target, ShieldCheck } from 'lucide-react';
 
 // "Vibrant Sky" palette — pulled directly from tailwind.config.js so
 // exports feel like an extension of the website rather than a separate brand.
@@ -192,13 +192,12 @@ function CompetitorLine({ c, score, isWinner, isLoser, big }) {
       <span style={{
         flex: 1,
         fontFamily: FONT_LABEL,
-        fontSize: nameSize,
+        fontSize: c?.name && c.name.length > 14 ? Math.max(11, nameSize - (c.name.length - 14)) : nameSize,
         fontWeight: isWinner ? 700 : 500,
         color: isWinner ? COLORS.text : COLORS.textSecondary,
         textDecoration: isLoser ? 'line-through' : 'none',
-        overflow: 'hidden',
-        whiteSpace: 'nowrap',
-        textOverflow: 'ellipsis',
+        wordBreak: 'break-word',
+        lineHeight: 1.2,
       }}>
         {c?.name || 'TBD'}
       </span>
@@ -612,21 +611,6 @@ function ResultsLayout({ matches, width, height }) {
                   </div>
                 </div>
 
-                {isCompleted && (homeWin || awayWin) && (
-                  <div style={{
-                    width: checkSize,
-                    height: checkSize,
-                    borderRadius: 999,
-                    background: COLORS.accent,
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Check size={Math.round(checkSize * 0.55)} strokeWidth={3} />
-                  </div>
-                )}
               </div>
             );
           })}
