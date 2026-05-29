@@ -17,6 +17,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import PrivacyPolicy from './pages/PolicyPage';
 import TermsOfService from './pages/TermsPage';
 import Declined from './pages/Declined';
+import NotFound from './pages/NotFound';
 import ConsentBanner from './components/ConsentBanner';
 
 function Layout({ children }) {
@@ -65,6 +66,8 @@ function App() {
             <AdminDashboard />
           </ProtectedRoute>
         } />
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <ConsentBanner />
     </Layout>
