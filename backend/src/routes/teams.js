@@ -81,6 +81,7 @@ router.get('/:id', async (req, res) => {
     .from('players')
     .select('id, name, jersey_number, position, photo_url, created_at')
     .eq('team_id', team.id)
+    .is('deleted_at', null)
     .order('jersey_number', { ascending: true });
 
   if (playerErr) {
