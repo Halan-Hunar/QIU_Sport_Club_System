@@ -46,6 +46,7 @@ router.get('/', async (req, res) => {
   let q = supabaseAdmin
     .from('players')
     .select('id, name, jersey_number, position, photo_url, notes, sports, team_id, created_at, team:teams(id, name, primary_color, secondary_color)')
+    .is('deleted_at', null)
     .order('name', { ascending: true });
 
   if (req.query.team_id) {
@@ -74,6 +75,7 @@ router.get('/:id', async (req, res) => {
     .from('players')
     .select('id, name, jersey_number, position, photo_url, notes, sports, team_id, created_at, team:teams(id, name, primary_color, secondary_color)')
     .eq('id', req.params.id)
+    .is('deleted_at', null)
     .single();
 
   if (pErr || !player) {
@@ -152,18 +154,22 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ─── DELETE /api/players/:id ──────────────────────────────────
+// Soft delete: set deleted_at so historical data (tournament registrations,
+// match events) remains intact while the player vanishes from listings.
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('players')
-    .delete()
-    .eq('id', req.params.id);
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
-  if (error) {
-    logger.error(`Delete player failed: ${error.message}`);
+  if (error || !data) {
+    logger.error(`Delete player failed: ${error?.message ?? 'not found'}`);
     return res.status(500).json({ error: 'Failed to delete player' });
   }
 
-  logger.info(`Player deleted: ${req.params.id} by ${req.user.email}`);
+  logger.info(`Player soft-deleted: ${req.params.id} by ${req.user.email}`);
   res.json({ success: true });
 });
 
