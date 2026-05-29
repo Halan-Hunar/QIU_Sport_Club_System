@@ -52,8 +52,10 @@ router.post('/login', async (req, res) => {
 
 // ─── POST /api/auth/refresh ───────────────────────────────────
 router.post('/refresh', async (req, res) => {
-  const { refresh_token } = req.body;
-  if (!refresh_token) return res.status(400).json({ error: 'refresh_token required' });
+  const { refresh_token } = req.body ?? {};
+  if (typeof refresh_token !== 'string' || refresh_token.trim().length === 0) {
+    return res.status(400).json({ error: 'refresh_token required' });
+  }
 
   const { data, error } = await supabase.auth.refreshSession({ refresh_token });
 

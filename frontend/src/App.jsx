@@ -14,6 +14,10 @@ import TournamentStats from './pages/TournamentStats';
 import Players from './pages/Players';
 import Stats from './pages/Stats';
 import AdminDashboard from './pages/AdminDashboard';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import Declined from './pages/Declined';
+import ConsentBanner from './components/ConsentBanner';
 
 function Layout({ children }) {
   const location = useLocation();
@@ -52,12 +56,17 @@ function App() {
 
         <Route path="/stats" element={<Stats />} />
 
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/declined" element={<Declined />} />
+
         <Route path="/admin" element={
           <ProtectedRoute adminOnly>
             <AdminDashboard />
           </ProtectedRoute>
         } />
       </Routes>
+      <ConsentBanner />
     </Layout>
   );
 }

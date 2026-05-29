@@ -5,6 +5,12 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger.js';
 
+if (process.env.NODE_ENV === 'production' &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY === 'replace-with-your-service-role-key') {
+  console.error('FATAL: SUPABASE_SERVICE_ROLE_KEY is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
