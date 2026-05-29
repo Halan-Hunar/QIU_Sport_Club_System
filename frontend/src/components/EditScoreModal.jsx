@@ -3,22 +3,6 @@ import { Plus, Minus, Pencil, Check } from 'lucide-react';
 import Modal from './Modal';
 import { useMatchStore } from '../store/matchStore';
 
-// Convert an ISO timestamp (or null) to the YYYY-MM-DDTHH:mm format
-// expected by <input type="datetime-local">. Returns '' if unset.
-function toLocalDateTimeInput(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-       + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromLocalDateTimeInput(value) {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
 
 function Stepper({ value, onChange, disabled }) {
   const dec = () => onChange(Math.max(0, value - 1));
@@ -59,7 +43,6 @@ export default function EditScoreModal({ open, onClose, match }) {
   const [form, setForm] = useState({
     home_score: 0,
     away_score: 0,
-    scheduled_at: '',
   });
 
   useEffect(() => {
@@ -67,7 +50,6 @@ export default function EditScoreModal({ open, onClose, match }) {
       setForm({
         home_score: match.home_score ?? 0,
         away_score: match.away_score ?? 0,
-        scheduled_at: toLocalDateTimeInput(match.scheduled_at),
       });
     }
     setEditing(false);
@@ -92,7 +74,6 @@ export default function EditScoreModal({ open, onClose, match }) {
     const payload = {
       home_score: Number(form.home_score),
       away_score: Number(form.away_score),
-      scheduled_at: fromLocalDateTimeInput(form.scheduled_at),
     };
     const result = await updateMatch(match.id, payload);
     if (result) setEditing(false);
@@ -147,18 +128,6 @@ export default function EditScoreModal({ open, onClose, match }) {
             )}
           </div>
         </div>
-
-        {editing && (
-          <div>
-            <label className="sc-label">Scheduled Date &amp; Time</label>
-            <input
-              type="datetime-local"
-              value={form.scheduled_at}
-              onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })}
-              className="sc-input"
-            />
-          </div>
-        )}
 
         {error && (
           <div className="bg-danger-container text-danger-on-container rounded-sm px-3 py-2 text-sm">

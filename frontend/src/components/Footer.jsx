@@ -6,7 +6,7 @@ export default function Footer() {
         <div>
           <p className="font-display text-lg text-primary tracking-wide">Sport Club</p>
           <p className="text-sm text-ink-variant mt-0.5">
-            © {new Date().getFullYear()} Sport Club. Athletics Department.
+            © {new Date().getFullYear()} Sport Club.
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-variant">

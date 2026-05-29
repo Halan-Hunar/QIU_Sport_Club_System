@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Trophy, CircleDot, ShieldCheck, TrendingUp, Target, Medal,
+  Trophy, CircleDot, ShieldCheck, Target, Share2,
 } from 'lucide-react';
 import { useTournamentStatsStore } from '../store/tournamentStatsStore';
+import { useAuthStore } from '../store/authStore';
 import { sportLabel } from '../constants/sports';
+import ExportModal from '../components/ExportModal';
 
 function ColorBar({ color }) {
   return (
@@ -104,6 +106,9 @@ function LeaderboardTable({ rows, columns, emptyText }) {
 export default function TournamentStats() {
   const { id } = useParams();
   const { data, loading, error, fetch: fetchStats } = useTournamentStatsStore();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => { fetchStats(id); }, [id, fetchStats]);
 
@@ -131,15 +136,26 @@ export default function TournamentStats() {
         <span className="text-primary font-semibold">Stats</span>
       </nav>
 
-      <div className="mb-8">
-        <h1 className="font-display text-headline-lg sm:text-display-lg text-ink leading-tight">
-          {t?.name ? `${t.name} · Stats` : 'Statistics'}
-        </h1>
-        {t && (
-          <p className="text-ink-variant mt-2">
-            {sportLabel(t.sport_type)}
-            {t.is_individual && ' · Individual'}
-          </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="font-display text-headline-lg sm:text-display-lg text-ink leading-tight">
+            {t?.name ? `${t.name} · Stats` : 'Statistics'}
+          </h1>
+          {t && (
+            <p className="text-ink-variant mt-2">
+              {sportLabel(t.sport_type)}
+              {t.is_individual && ' · Individual'}
+            </p>
+          )}
+        </div>
+        {isAdmin && data && applicable.length > 0 && (
+          <button
+            onClick={() => setExportOpen(true)}
+            className="sc-btn-secondary !py-2 !px-4 self-start sm:self-auto"
+          >
+            <Share2 size={16} strokeWidth={2.25} />
+            Export
+          </button>
         )}
       </div>
 
@@ -188,17 +204,6 @@ export default function TournamentStats() {
                 value={data.clean_sheets[0]?.team_name ?? null}
                 subtext={data.clean_sheets[0]
                   ? `${data.clean_sheets[0].clean_sheet_count} ${data.clean_sheets[0].clean_sheet_count === 1 ? 'match' : 'matches'}`
-                  : null}
-              />
-            )}
-            {applicable.includes('most_wins') && (
-              <HeadlineCard
-                Icon={Medal}
-                tone="text-tertiary"
-                label="Most Wins"
-                value={data.most_wins[0]?.name ?? null}
-                subtext={data.most_wins[0]
-                  ? `${data.most_wins[0].win_count} ${data.most_wins[0].win_count === 1 ? 'win' : 'wins'}`
                   : null}
               />
             )}
@@ -282,40 +287,6 @@ export default function TournamentStats() {
               </section>
             )}
 
-            {applicable.includes('most_wins') && (
-              <section className="bg-white rounded-md border border-outline-variant/30 shadow-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp size={18} strokeWidth={2} className="text-tertiary" aria-hidden />
-                  <h2 className="font-display text-headline-md text-ink">Most Wins</h2>
-                </div>
-                <LeaderboardTable
-                  rows={data.most_wins.map((r) => ({ ...r, _key: r.id }))}
-                  emptyText="No completed matches yet."
-                  columns={[
-                    {
-                      key: 'name',
-                      label: data.tournament?.is_individual ? 'Player' : 'Team',
-                      render: (r) => (
-                        <div className="flex items-center gap-2">
-                          {r.kind === 'team' ? <ColorBar color={r.color} /> : null}
-                          <span className="truncate">{r.name ?? '—'}</span>
-                          {r.kind === 'player' && r.jersey_number != null && (
-                            <span className="text-ink-variant text-xs">#{r.jersey_number}</span>
-                          )}
-                        </div>
-                      ),
-                    },
-                    {
-                      key: 'wins',
-                      label: 'Wins',
-                      align: 'right',
-                      accent: true,
-                      render: (r) => r.win_count,
-                    },
-                  ]}
-                />
-              </section>
-            )}
           </div>
 
           <p className="text-xs text-ink-variant">
@@ -324,6 +295,13 @@ export default function TournamentStats() {
           </p>
         </>
       ) : null}
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        tournament={t}
+        stats={data}
+      />
     </motion.div>
   );
 }

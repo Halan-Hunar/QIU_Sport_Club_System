@@ -3,11 +3,11 @@ export default function RosterRow({ player, isCaptain, isAdmin, onEdit, onDelete
     <div className={`flex items-center gap-4 rounded-sm px-4 py-3 transition-colors
                      ${even ? 'bg-surface-low/60' : 'bg-white'}
                      border border-outline-variant/30 hover:border-primary-container/40`}>
-      {/* Jersey */}
+      {/* Avatar */}
       <div className="w-11 h-11 rounded-full bg-primary text-white
                       flex items-center justify-center flex-shrink-0 shadow-card">
         <span className="font-display text-lg leading-none tracking-wide">
-          {String(player.jersey_number).padStart(2, '0')}
+          {player.name?.charAt(0).toUpperCase() ?? '?'}
         </span>
       </div>
 

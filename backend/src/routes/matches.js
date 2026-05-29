@@ -504,22 +504,38 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
 
   if (updates.status === 'live') updates.started_at = new Date().toISOString();
 
-  // On completion: stamp ended_at and auto-derive winner from scores if none was explicitly set.
+  // Re-derive winner from scores whenever the match is (or is becoming)
+  // completed. Previously we only did this when status flipped to 'completed'
+  // in this PATCH — which meant editing scores on an already-completed match
+  // never recomputed the winner, leaving the bracket pointing at a stale
+  // (or null) winner. We still respect an explicit winner_id in the body.
+  const effectiveStatus = updates.status ?? existing.status;
   if (updates.status === 'completed') {
     updates.ended_at = new Date().toISOString();
+  }
+  if (effectiveStatus === 'completed') {
     const hs = updates.home_score ?? existing.home_score ?? 0;
     const as = updates.away_score ?? existing.away_score ?? 0;
+    const scoresChanged =
+      updates.home_score !== undefined || updates.away_score !== undefined;
+    const statusJustCompleted = updates.status === 'completed';
+
+    const deriveTeam = () => hs > as ? existing.home_team_id
+                          : as > hs ? existing.away_team_id : null;
+    const derivePlayer = () => hs > as ? existing.home_player_id
+                            : as > hs ? existing.away_player_id : null;
+
     if (isPlayerMatch) {
-      const already = updates.winner_player_id !== undefined ? updates.winner_player_id : existing.winner_player_id;
-      if (!already) {
-        if (hs > as) updates.winner_player_id = existing.home_player_id;
-        else if (as > hs) updates.winner_player_id = existing.away_player_id;
+      if (updates.winner_player_id === undefined) {
+        if (existing.winner_player_id == null || scoresChanged || statusJustCompleted) {
+          updates.winner_player_id = derivePlayer();
+        }
       }
     } else {
-      const already = updates.winner_id !== undefined ? updates.winner_id : existing.winner_id;
-      if (!already) {
-        if (hs > as) updates.winner_id = existing.home_team_id;
-        else if (as > hs) updates.winner_id = existing.away_team_id;
+      if (updates.winner_id === undefined) {
+        if (existing.winner_id == null || scoresChanged || statusJustCompleted) {
+          updates.winner_id = deriveTeam();
+        }
       }
     }
   }

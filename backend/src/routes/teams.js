@@ -22,10 +22,12 @@ const updateTeamSchema = createTeamSchema.partial();
 
 const playerPositions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'N/A'];
 
+// jersey_number and position are optional so Quick Add (name-only) works
+// from inline flows like the Log Event modal. Position falls back to 'N/A'.
 const createPlayerSchema = z.object({
   name: z.string().trim().min(2).max(60),
-  jersey_number: z.number().int().min(0).max(999),
-  position: z.enum(playerPositions),
+  jersey_number: z.number().int().min(0).max(999).optional().nullable(),
+  position: z.enum(playerPositions).optional().default('N/A'),
   photo_url: z.string().url().optional().nullable(),
 });
 

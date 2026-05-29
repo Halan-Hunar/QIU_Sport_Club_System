@@ -14,8 +14,8 @@ const positions = [
   { value: 'N/A',         short: '–'  },
 ];
 
-const teamDefaults = { name: '', jersey_number: '', position: 'N/A' };
-const standaloneDefaults = { name: '', jersey_number: '', notes: '', sports: [] };
+const teamDefaults = { name: '', position: 'N/A' };
+const standaloneDefaults = { name: '', notes: '', sports: [] };
 
 // teamId is optional. When omitted (and we're not editing a player that
 // already has a team), the modal runs in *standalone* mode: it asks only for
@@ -46,14 +46,12 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
       if (useStandalone) {
         setForm({
           name: player.name ?? '',
-          jersey_number: String(player.jersey_number ?? ''),
           notes: player.notes ?? '',
           sports: player.sports ?? [],
         });
       } else {
         setForm({
           name: player.name ?? '',
-          jersey_number: String(player.jersey_number ?? ''),
           position: player.position ?? 'N/A',
         });
       }
@@ -67,10 +65,6 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = { name: form.name.trim() };
-
-    if (form.jersey_number !== '') {
-      payload.jersey_number = Number(form.jersey_number);
-    }
 
     if (useStandalone) {
       const notes = (form.notes ?? '').trim();
@@ -117,7 +111,7 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
   // ── Preview header (shared) ────────────────────────────────
   const avatarLabel = useStandalone
     ? (form.name?.charAt(0).toUpperCase() || '·')
-    : (form.jersey_number ? String(form.jersey_number).padStart(2, '0') : '##');
+    : '##';
 
   return (
     <Modal open={open} onClose={onClose} title={title} subtitle={subtitle}>
@@ -156,22 +150,6 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
 
         {useStandalone ? (
           <>
-            <div>
-              <label className="sc-label">
-                Player ID / Number{' '}
-                <span className="text-ink-variant/70 normal-case">(optional)</span>
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={999}
-                value={form.jersey_number}
-                onChange={(e) => setForm({ ...form, jersey_number: e.target.value })}
-                className="sc-input"
-                placeholder="e.g. 42"
-              />
-            </div>
-
             <div>
               <label className="sc-label">
                 Notes{' '}
@@ -228,20 +206,6 @@ export default function AddPlayerModal({ open, onClose, teamId, player = null })
           </>
         ) : (
           <>
-            <div>
-              <label className="sc-label">Jersey number</label>
-              <input
-                type="number"
-                required
-                min={0}
-                max={999}
-                value={form.jersey_number}
-                onChange={(e) => setForm({ ...form, jersey_number: e.target.value })}
-                className="sc-input"
-                placeholder="10"
-              />
-            </div>
-
             <div>
               <label className="sc-label">Position</label>
               <div className="grid grid-cols-5 gap-2">

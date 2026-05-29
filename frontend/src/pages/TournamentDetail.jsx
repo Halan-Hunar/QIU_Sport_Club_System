@@ -9,11 +9,12 @@ import { usePlayerStore } from '../store/playerStore';
 import CreateTournamentModal from '../components/CreateTournamentModal';
 import Modal from '../components/Modal';
 import PlayerDetailModal from '../components/PlayerDetailModal';
-import { Trophy, Plus, X, Loader2, UserPlus } from 'lucide-react';
+import { Trophy, Plus, X, Loader2, UserPlus, Share2 } from 'lucide-react';
 import Bracket from '../components/Bracket';
 import StandingsTable from '../components/StandingsTable';
 import MatchCard from '../components/MatchCard';
 import MatchDetailModal from '../components/MatchDetailModal';
+import ExportModal from '../components/ExportModal';
 
 const formatLabels = {
   single_elim:    'Single Elimination',
@@ -349,6 +350,7 @@ export default function TournamentDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [openMatch, setOpenMatch] = useState(null);
   const [openPlayerId, setOpenPlayerId] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const {
     matches, standings, saving: matchSaving, error: matchError,
@@ -487,6 +489,14 @@ export default function TournamentDetail() {
             </Link>
             {isAdmin && (
               <>
+                <button
+                  onClick={() => setExportOpen(true)}
+                  className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
+                             hover:!bg-white/25"
+                >
+                  <Share2 size={16} strokeWidth={2.25} />
+                  Export
+                </button>
                 <button
                   onClick={() => setEditOpen(true)}
                   className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
@@ -758,6 +768,13 @@ export default function TournamentDetail() {
         open={!!openPlayerId}
         onClose={() => setOpenPlayerId(null)}
         playerId={openPlayerId}
+      />
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        tournament={tournament}
+        matches={matches}
+        standings={standings}
       />
     </motion.div>
   );
