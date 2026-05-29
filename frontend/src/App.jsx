@@ -14,8 +14,8 @@ import TournamentStats from './pages/TournamentStats';
 import Players from './pages/Players';
 import Stats from './pages/Stats';
 import AdminDashboard from './pages/AdminDashboard';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PolicyPage';
+import TermsOfService from './pages/TermsPage';
 import Declined from './pages/Declined';
 import ConsentBanner from './components/ConsentBanner';
 
