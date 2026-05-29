@@ -22,11 +22,10 @@ app.use(cors({
   credentials: true,
 }));
 
-// Global rate limiter — sized for active development sessions with realtime
-// + bracket regeneration + stats polling. Tighten this in production.
+// Global rate limiter — 1000/15min is plenty for a small two-admin deployment.
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 2000,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, slow down.' },
