@@ -1,5 +1,5 @@
 -- ============================================================
--- QIU Sport Club Management System — Database Schema
+-- Sport Club Management System — Database Schema
 -- Run this in Supabase SQL Editor
 -- ============================================================
 
@@ -34,13 +34,17 @@ create table public.teams (
 );
 
 -- ─── PLAYERS ─────────────────────────────────────────────────
+-- team_id is nullable so standalone (individual-sport) players can exist
+-- without being on a club team. Solo events register via tournament_players.
 create table public.players (
   id uuid primary key default uuid_generate_v4(),
-  team_id uuid not null references public.teams(id) on delete cascade,
+  team_id uuid references public.teams(id) on delete cascade,
   name text not null,
   jersey_number int,
   position text,
   photo_url text,
+  notes text,                          -- free-form (rank, faculty, …) for standalone players
+  sports text[] not null default '{}', -- sports this player is eligible for (chess, table_tennis, …)
   created_at timestamptz not null default now()
 );
 
@@ -54,6 +58,7 @@ create table public.tournaments (
   start_date date,
   end_date date,
   description text,
+  is_individual boolean not null default false,  -- true for chess, ping pong, etc.
   created_by uuid references public.users(id),
   created_at timestamptz not null default now()
 );
@@ -67,6 +72,17 @@ create table public.tournament_teams (
   seed int,                  -- assigned when tournament starts
   group_name text,           -- e.g. "A", "B" for group stage format
   unique(tournament_id, team_id)
+);
+
+-- ─── TOURNAMENT PLAYERS ──────────────────────────────────────
+-- Individual-player registrations (chess, table tennis, etc.) — used when
+-- tournaments.is_individual is true.
+create table public.tournament_players (
+  id uuid primary key default uuid_generate_v4(),
+  tournament_id uuid not null references public.tournaments(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  seed int,
+  unique(tournament_id, player_id)
 );
 
 -- ─── TEAM CAPTAINS ───────────────────────────────────────────
@@ -84,8 +100,10 @@ create table public.matches (
   tournament_id uuid not null references public.tournaments(id) on delete cascade,
   round text,                -- e.g. "Quarter Final", "Group Stage"
   match_number int,          -- order within round
-  home_team_id uuid references public.teams(id),
-  away_team_id uuid references public.teams(id),
+  home_team_id   uuid references public.teams(id),    -- team competitor (null for individual sports)
+  away_team_id   uuid references public.teams(id),
+  home_player_id uuid references public.players(id),  -- individual-sport competitor
+  away_player_id uuid references public.players(id),
   home_score int not null default 0,
   away_score int not null default 0,
   status match_status not null default 'scheduled',
@@ -93,8 +111,9 @@ create table public.matches (
   started_at timestamptz,
   ended_at timestamptz,
   location text,
-  winner_id uuid references public.teams(id),
-  next_match_id uuid references public.matches(id), -- bracket progression
+  winner_id        uuid references public.teams(id),   -- winning team
+  winner_player_id uuid references public.players(id), -- or winning player
+  next_match_id uuid references public.matches(id),    -- bracket progression
   created_at timestamptz not null default now()
 );
 
@@ -173,6 +192,7 @@ alter table public.team_captains enable row level security;
 alter table public.matches enable row level security;
 alter table public.match_events enable row level security;
 alter table public.awards enable row level security;
+alter table public.tournament_players enable row level security;
 
 -- Helper function: check if current user is admin
 create or replace function public.is_admin()
@@ -206,6 +226,15 @@ create policy "tournament_teams_public_read" on public.tournament_teams for sele
 create policy "tournament_teams_admin_insert" on public.tournament_teams for insert with check (public.is_admin());
 create policy "tournament_teams_admin_update" on public.tournament_teams for update using (public.is_admin());
 create policy "tournament_teams_admin_delete" on public.tournament_teams for delete using (public.is_admin());
+
+-- TOURNAMENT_PLAYERS: public read, admin write
+create policy "tournament_players_public_read" on public.tournament_players for select using (true);
+create policy "tournament_players_admin_insert" on public.tournament_players for insert with check (public.is_admin());
+create policy "tournament_players_admin_update" on public.tournament_players for update using (public.is_admin());
+create policy "tournament_players_admin_delete" on public.tournament_players for delete using (public.is_admin());
+
+grant all    on public.tournament_players to service_role;
+grant select on public.tournament_players to anon, authenticated;
 
 -- TEAM_CAPTAINS: public read, admin write
 create policy "team_captains_public_read" on public.team_captains for select using (true);
@@ -249,3 +278,44 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ─── MIGRATIONS (idempotent — safe to re-run on an existing DB) ───────────────
+-- These mirror the schema changes above for databases that were created from
+-- an older version of this file. Run the whole block in the SQL editor.
+
+alter table public.players alter column team_id drop not null;
+alter table public.players add column if not exists notes text;
+alter table public.players add column if not exists sports text[] not null default '{}';
+
+alter table public.matches add column if not exists home_player_id   uuid references public.players(id);
+alter table public.matches add column if not exists away_player_id   uuid references public.players(id);
+alter table public.matches add column if not exists winner_player_id uuid references public.players(id);
+
+alter table public.tournaments
+  add column if not exists is_individual boolean not null default false;
+
+create table if not exists public.tournament_players (
+  id uuid primary key default uuid_generate_v4(),
+  tournament_id uuid not null references public.tournaments(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  seed int,
+  unique(tournament_id, player_id)
+);
+alter table public.tournament_players enable row level security;
+
+do $$ begin
+  create policy "tournament_players_public_read" on public.tournament_players for select using (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "tournament_players_admin_insert" on public.tournament_players for insert with check (public.is_admin());
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "tournament_players_admin_update" on public.tournament_players for update using (public.is_admin());
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "tournament_players_admin_delete" on public.tournament_players for delete using (public.is_admin());
+exception when duplicate_object then null; end $$;
+
+grant all    on public.tournament_players to service_role;
+grant select on public.tournament_players to anon, authenticated;
+grant all    on public.tournaments        to service_role;

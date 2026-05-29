@@ -5,6 +5,12 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger.js';
 
+if (process.env.NODE_ENV === 'production' &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY === 'replace-with-your-service-role-key') {
+  console.error('FATAL: SUPABASE_SERVICE_ROLE_KEY is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -16,10 +22,10 @@ app.use(cors({
   credentials: true,
 }));
 
-// Global rate limiter
+// Global rate limiter — 1000/15min is plenty for a small two-admin deployment.
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, slow down.' },
@@ -29,7 +35,7 @@ app.use(globalLimiter);
 // Stricter limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 50,
   message: { error: 'Too many login attempts. Try again in 15 minutes.' },
 });
 
@@ -43,12 +49,23 @@ app.use((req, _res, next) => {
 });
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
-// TODO: import and mount routes here as we build them
-// app.use('/api/auth', authLimiter, authRoutes);
-// app.use('/api/tournaments', tournamentRoutes);
-// app.use('/api/teams', teamRoutes);
-// app.use('/api/matches', matchRoutes);
-// app.use('/api/players', playerRoutes);
+import authRoutes from './routes/auth.js';
+import teamRoutes from './routes/teams.js';
+import playerRoutes from './routes/players.js';
+import tournamentRoutes from './routes/tournaments.js';
+import matchRoutes from './routes/matches.js';
+import matchEventRoutes from './routes/matchEvents.js';
+import awardRoutes from './routes/awards.js';
+import statsRoutes from './routes/stats.js';
+
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/players', playerRoutes);
+app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/matches', matchRoutes);
+app.use('/api/match-events', matchEventRoutes);
+app.use('/api/awards', awardRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Health check
 app.get('/health', (_req, res) => {

@@ -3,28 +3,102 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-stadium-900 text-white font-sans antialiased;
+    @apply bg-surface text-ink font-sans;
+    font-feature-settings: 'cv11', 'ss01';
   }
 
   * {
     @apply box-border;
   }
 
-  /* Custom scrollbar */
+  h1, h2, h3, h4 {
+    @apply font-display tracking-wide;
+  }
+
+  /* DM Sans display headlines run bold by default; tighten tracking a touch. */
+  .font-display {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-stadium-800;
+    @apply bg-surface-low;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-stadium-600 rounded-full;
+    @apply bg-outline-variant rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-outline;
   }
 }
 
-@layer utilities {
-  .glass {
-    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+@layer components {
+  .sc-card {
+    @apply bg-white rounded-md shadow-card border border-outline-variant/30;
+  }
+
+  .sc-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-primary text-primary-on
+           font-label font-semibold uppercase tracking-wider text-sm
+           px-6 py-3 rounded-full shadow-card
+           hover:bg-primary/90 hover:shadow-card-hover
+           active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all;
+  }
+
+  .sc-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 bg-white text-primary
+           font-label font-semibold uppercase tracking-wider text-sm
+           px-6 py-3 rounded-full border border-outline-variant
+           hover:bg-surface-low hover:border-primary
+           transition-all;
+  }
+
+  .sc-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 text-ink-variant
+           font-label font-semibold uppercase tracking-wider text-xs
+           px-4 py-2 rounded-full
+           hover:bg-surface-low hover:text-primary
+           transition-colors;
+  }
+
+  .sc-input {
+    @apply w-full bg-white border border-outline-variant rounded
+           px-4 py-3 text-ink placeholder-ink-variant/50
+           focus:outline-none focus:border-primary-container focus:shadow-glow
+           transition-all;
+  }
+
+  .sc-label {
+    @apply block text-label-md font-label font-semibold uppercase
+           text-ink-variant mb-1.5;
+  }
+
+  .sc-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+           text-label-md font-label font-semibold uppercase tracking-wider;
+  }
+
+  .sc-chip-primary {
+    @apply sc-chip bg-primary-container/15 text-primary;
+  }
+
+  .sc-chip-live {
+    @apply sc-chip bg-live/10 text-live;
+  }
+
+  .sc-chip-muted {
+    @apply sc-chip bg-surface-low text-ink-variant;
   }
 }
