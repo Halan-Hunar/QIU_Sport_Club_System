@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Trophy, CircleDot, ShieldCheck, Target, Share2,
+  Trophy, CircleDot, ShieldCheck, Target, Share2, Star, Shield,
 } from 'lucide-react';
 import { useTournamentStatsStore } from '../store/tournamentStatsStore';
 import { useAuthStore } from '../store/authStore';
@@ -185,6 +185,17 @@ export default function TournamentStats() {
                 subtext={data.champion ? `${data.champion.kind === 'player' ? 'Player' : 'Team'}` : null}
               />
             )}
+            {data.best_player && (
+              <HeadlineCard
+                Icon={Star}
+                tone="text-tertiary"
+                label="Best Player"
+                value={data.best_player.player_name ?? null}
+                subtext={data.best_player.goal_count > 0
+                  ? `${data.best_player.goal_count} ${data.best_player.goal_count === 1 ? 'goal' : 'goals'} · ${data.best_player.team_name}`
+                  : data.best_player.team_name}
+              />
+            )}
             {applicable.includes('top_scorer') && (
               <HeadlineCard
                 Icon={CircleDot}
@@ -196,15 +207,13 @@ export default function TournamentStats() {
                   : null}
               />
             )}
-            {applicable.includes('clean_sheet') && (
+            {data.best_gk && (
               <HeadlineCard
-                Icon={ShieldCheck}
+                Icon={Shield}
                 tone="text-secondary"
-                label="Clean Sheets"
-                value={data.clean_sheets[0]?.team_name ?? null}
-                subtext={data.clean_sheets[0]
-                  ? `${data.clean_sheets[0].clean_sheet_count} ${data.clean_sheets[0].clean_sheet_count === 1 ? 'match' : 'matches'}`
-                  : null}
+                label="Best Goalkeeper"
+                value={data.best_gk.player_name ?? null}
+                subtext={`${data.best_gk.clean_sheet_count} clean sheet${data.best_gk.clean_sheet_count !== 1 ? 's' : ''} · ${data.best_gk.team_name}`}
               />
             )}
           </div>

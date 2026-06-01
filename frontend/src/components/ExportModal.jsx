@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toPng } from 'html-to-image';
 import {
   X, Download, Loader2, Smartphone, Image as ImageIcon, Square,
-  GitBranch, ListChecks, Trophy, LayoutGrid, Target, ShieldCheck,
+  GitBranch, ListChecks, Trophy, LayoutGrid, Target, ShieldCheck, Users,
 } from 'lucide-react';
 import ExportCanvas from './ExportCanvas';
 
@@ -14,9 +14,10 @@ const ASPECT_OPTIONS = [
 ];
 
 const TYPE_OPTIONS = [
-  { id: 'bracket',   label: 'Bracket',   icon: GitBranch },
-  { id: 'results',   label: 'Results',   icon: ListChecks },
-  { id: 'standings', label: 'Standings', icon: Trophy },
+  { id: 'bracket',         label: 'Bracket',         icon: GitBranch },
+  { id: 'results',         label: 'Results',         icon: ListChecks },
+  { id: 'standings',       label: 'Standings',       icon: Trophy },
+  { id: 'group_standings', label: 'Group Standings', icon: Users },
 ];
 
 const STATS_TYPE_OPTIONS = [
@@ -78,8 +79,17 @@ export default function ExportModal({
 
   const supportsStandings =
     tournament?.format === 'round_robin' || tournament?.format === 'group_knockout';
+  const supportsGroupStandings = tournament?.format === 'group_knockout';
+
+  const availableGroups = useMemo(() => {
+    if (!supportsGroupStandings) return [];
+    const names = new Set();
+    (standings || []).forEach((r) => { if (r.group_name) names.add(r.group_name); });
+    return [...names].sort();
+  }, [standings, supportsGroupStandings]);
 
   const [type, setType] = useState(isStatsMode ? (availableStatsTypes[0]?.id || 'stats_overview') : 'bracket');
+  const [selectedGroup, setSelectedGroup] = useState(availableGroups[0] || '');
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [selectedRounds, setSelectedRounds] = useState(allRounds);
   const [selectedMatchIds, setSelectedMatchIds] = useState(completedIds);
@@ -95,15 +105,18 @@ export default function ExportModal({
     setSelectedRounds(allRounds);
     setSelectedMatchIds(completedIds);
     setError(null);
+    if (availableGroups.length && !availableGroups.includes(selectedGroup)) {
+      setSelectedGroup(availableGroups[0]);
+    }
     // Reset to a valid default for the current mode each time the modal opens.
     if (isStatsMode) {
       const first = availableStatsTypes[0]?.id;
       if (first && !availableStatsTypes.some((o) => o.id === type)) setType(first);
-    } else if (!['bracket', 'results', 'standings'].includes(type)) {
+    } else if (!['bracket', 'results', 'standings', 'group_standings'].includes(type)) {
       setType('bracket');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, allRounds, completedIds, isStatsMode]);
+  }, [open, allRounds, completedIds, isStatsMode, availableGroups]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,7 +151,8 @@ export default function ExportModal({
 
   useEffect(() => {
     if (type === 'standings' && !supportsStandings) setType('bracket');
-  }, [type, supportsStandings]);
+    if (type === 'group_standings' && !supportsGroupStandings) setType('bracket');
+  }, [type, supportsStandings, supportsGroupStandings]);
 
   const toggleRound = (round) => {
     setSelectedRounds((prev) =>
@@ -199,6 +213,19 @@ export default function ExportModal({
 
   // Pick which matches go to the canvas based on the export type
   const canvasMatches = type === 'results' ? filteredResultMatches : matches;
+
+  // For the group_standings export, narrow standings to just the chosen group
+  // and re-sort by the same tie-breakers the backend uses.
+  const canvasStandings = useMemo(() => {
+    if (type !== 'group_standings') return standings;
+    return (standings || [])
+      .filter((r) => r.group_name === selectedGroup)
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
+        return b.goals_for - a.goals_for;
+      });
+  }, [type, standings, selectedGroup]);
 
   const dim = ASPECT_OPTIONS.find((a) => a.id === aspectRatio);
 
@@ -293,9 +320,13 @@ export default function ExportModal({
                         })}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-1 bg-surface-low
-                                      rounded-sm p-1">
-                        {TYPE_OPTIONS.map((opt) => {
+                      <div
+                        className="grid gap-1 bg-surface-low rounded-sm p-1"
+                        style={{ gridTemplateColumns: `repeat(${supportsGroupStandings ? 4 : 3}, minmax(0, 1fr))` }}
+                      >
+                        {TYPE_OPTIONS
+                          .filter((opt) => opt.id !== 'group_standings' || supportsGroupStandings)
+                          .map((opt) => {
                           const Icon = opt.icon;
                           const disabled = opt.id === 'standings' && !supportsStandings;
                           const active = type === opt.id;
@@ -325,6 +356,31 @@ export default function ExportModal({
                       </p>
                     )}
                   </div>
+
+                  {/* Group picker (group_standings only) */}
+                  {!isStatsMode && type === 'group_standings' && (
+                    <div>
+                      <p className="font-label text-label-md uppercase tracking-wider
+                                    text-ink-variant mb-2">Group</p>
+                      {availableGroups.length === 0 ? (
+                        <p className="text-sm text-ink-variant">
+                          No groups in the standings yet.
+                        </p>
+                      ) : (
+                        <select
+                          value={selectedGroup}
+                          onChange={(e) => setSelectedGroup(e.target.value)}
+                          className="w-full bg-white border border-outline-variant/40
+                                     rounded-sm px-3 py-2 text-ink focus:outline-none
+                                     focus:border-primary"
+                        >
+                          {availableGroups.map((g) => (
+                            <option key={g} value={g}>Group {g}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
 
                   {/* Rounds (bracket only) */}
                   {!isStatsMode && type === 'bracket' && (
@@ -570,10 +626,11 @@ export default function ExportModal({
                           type={type}
                           tournament={tournament}
                           matches={canvasMatches}
-                          standings={standings}
+                          standings={canvasStandings}
                           stats={stats}
                           rounds={orderedSelectedRounds}
                           aspectRatio={aspectRatio}
+                          groupName={selectedGroup}
                         />
                       </div>
                     </div>
@@ -603,10 +660,11 @@ export default function ExportModal({
               type={type}
               tournament={tournament}
               matches={canvasMatches}
-              standings={standings}
+              standings={canvasStandings}
               stats={stats}
               rounds={orderedSelectedRounds}
               aspectRatio={aspectRatio}
+              groupName={selectedGroup}
             />
           </div>
         </motion.div>

@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from 'react';
-import { Trophy, Target, ShieldCheck } from 'lucide-react';
+import { Trophy, Target, ShieldCheck, Star, Shield } from 'lucide-react';
 
 // "Vibrant Sky" palette — pulled directly from tailwind.config.js so
 // exports feel like an extension of the website rather than a separate brand.
@@ -83,7 +83,13 @@ function formatExportDate() {
 }
 
 // ─── Header / Footer ────────────────────────────────────────────────
-function Header({ tournament }) {
+// `pillText` / `pillBg` let callers swap the default sport-type pill for
+// something custom (e.g. a coloured "Squad" badge tinted to the team colour);
+// `subtitle` adds a second display line under the title (e.g. "Group A").
+function Header({ tournament, title, subtitle, pillText, pillBg }) {
+  const resolvedTitle = title ?? tournament?.name ?? 'Tournament';
+  const resolvedPill = pillText ?? (tournament?.sport_type || '').replace(/_/g, ' ');
+  const resolvedBg = pillBg || 'rgba(255,255,255,0.18)';
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{
@@ -95,14 +101,27 @@ function Header({ tournament }) {
         lineHeight: 1.05,
         textShadow: '0 2px 14px rgba(0,30,48,0.2)',
       }}>
-        {tournament?.name || 'Tournament'}
+        {resolvedTitle}
       </div>
+      {subtitle && (
+        <div style={{
+          marginTop: 8,
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 700,
+          fontSize: 28,
+          color: COLORS.onDarkSoft,
+          letterSpacing: '-0.01em',
+          lineHeight: 1.1,
+        }}>
+          {subtitle}
+        </div>
+      )}
       <div style={{
         display: 'inline-block',
         marginTop: 14,
         padding: '8px 16px',
         borderRadius: 999,
-        background: 'rgba(255,255,255,0.18)',
+        background: resolvedBg,
         border: '1px solid rgba(255,255,255,0.35)',
         color: COLORS.onDark,
         fontFamily: FONT_LABEL,
@@ -112,7 +131,7 @@ function Header({ tournament }) {
         letterSpacing: '0.05em',
         backdropFilter: 'blur(2px)',
       }}>
-        {(tournament?.sport_type || '').replace(/_/g, ' ')}
+        {resolvedPill}
       </div>
     </div>
   );
@@ -536,12 +555,13 @@ function ResultsLayout({ matches, width, height }) {
                       </div>
                     )}
                     <span style={{
-                      fontSize: nameSize,
+                      fontSize: home?.name && home.name.length > 14
+                        ? Math.max(sz(13), nameSize - sz(home.name.length - 14))
+                        : nameSize,
                       fontWeight: homeWin ? 700 : 500,
                       color: homeWin ? COLORS.text : COLORS.textVariant,
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      textOverflow: 'ellipsis',
+                      lineHeight: 1.15,
+                      wordBreak: 'break-word',
                     }}>
                       {home?.name || 'TBD'}
                     </span>
@@ -580,12 +600,14 @@ function ResultsLayout({ matches, width, height }) {
                     minWidth: 0,
                   }}>
                     <span style={{
-                      fontSize: nameSize,
+                      fontSize: away?.name && away.name.length > 14
+                        ? Math.max(sz(13), nameSize - sz(away.name.length - 14))
+                        : nameSize,
                       fontWeight: awayWin ? 700 : 500,
                       color: awayWin ? COLORS.text : COLORS.textVariant,
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      textOverflow: 'ellipsis',
+                      lineHeight: 1.15,
+                      wordBreak: 'break-word',
+                      textAlign: 'right',
                     }}>
                       {away?.name || 'TBD'}
                     </span>
@@ -622,8 +644,12 @@ function ResultsLayout({ matches, width, height }) {
 }
 
 // ─── STANDINGS layout ────────────────────────────────────────────────
-function StandingsLayout({ standings, width, height }) {
+// `advanceAccent`: when true, top-2 rows get a green left border (used by the
+// group_standings export to telegraph who advances to the knockout stage).
+function StandingsLayout({ standings, width, height, advanceAccent }) {
   const rows = standings || [];
+  // Tertiary-container green from the design system — matches the ADV pill.
+  const ADVANCE_GREEN = '#15803d';
 
   return (
     <div style={{
@@ -679,14 +705,22 @@ function StandingsLayout({ standings, width, height }) {
           </div>
         )}
 
-        {rows.map((r, idx) => (
+        {rows.map((r, idx) => {
+          const advances = advanceAccent && idx < 2;
+          const leftBorder = advances
+            ? `5px solid ${ADVANCE_GREEN}`
+            : (!advanceAccent && idx === 0 ? `5px solid ${COLORS.accent}` : '5px solid transparent');
+          const rankColor = advances
+            ? ADVANCE_GREEN
+            : (!advanceAccent && idx === 0 ? COLORS.accent : COLORS.text);
+          return (
           <div key={r.team_id || idx} style={{
             display: 'grid',
             gridTemplateColumns: '60px 1fr 60px 60px 60px 60px 70px 70px 70px 80px',
             alignItems: 'center',
             padding: '18px 20px',
             background: idx % 2 === 0 ? COLORS.card : COLORS.cardAlt,
-            borderLeft: idx === 0 ? `5px solid ${COLORS.accent}` : '5px solid transparent',
+            borderLeft: leftBorder,
             fontSize: 18,
             color: COLORS.textVariant,
             fontVariantNumeric: 'tabular-nums',
@@ -694,7 +728,7 @@ function StandingsLayout({ standings, width, height }) {
             <span style={{
               fontWeight: 700,
               fontSize: 18,
-              color: idx === 0 ? COLORS.accent : COLORS.text,
+              color: rankColor,
             }}>
               {idx + 1}
             </span>
@@ -736,7 +770,8 @@ function StandingsLayout({ standings, width, height }) {
               {r.points ?? 0}
             </span>
           </div>
-        ))}
+          );
+        })}
       </div>
       <span style={{ display: 'none' }}>{width}x{height}</span>
     </div>
@@ -983,6 +1018,8 @@ function StatsOverviewLayout({ stats, width, height }) {
   const champion = stats.champion;
   const topScorer = stats.top_scorers?.[0];
   const cleanSheet = stats.clean_sheets?.[0];
+  const bestPlayer = stats.best_player;
+  const bestGk = stats.best_gk;
 
   // Build headline cards based on applicable
   const headlines = [];
@@ -992,11 +1029,27 @@ function StatsOverviewLayout({ stats, width, height }) {
       value: champion?.name, sub: champion ? (champion.kind === 'player' ? 'Player' : 'Team') : null,
     });
   }
+  if (bestPlayer) {
+    headlines.push({
+      key: 'best_player', Icon: Star, label: 'Best Player',
+      value: bestPlayer.player_name,
+      sub: bestPlayer.goal_count > 0
+        ? `${bestPlayer.goal_count} ${bestPlayer.goal_count === 1 ? 'goal' : 'goals'} · ${bestPlayer.team_name}`
+        : bestPlayer.team_name,
+    });
+  }
   if (applicable.includes('top_scorer')) {
     headlines.push({
       key: 'top_scorer', Icon: Target, label: 'Top Scorer',
       value: topScorer?.player_name,
       sub: topScorer ? `${topScorer.goal_count} ${topScorer.goal_count === 1 ? 'goal' : 'goals'}` : null,
+    });
+  }
+  if (bestGk) {
+    headlines.push({
+      key: 'best_gk', Icon: Shield, label: 'Best Goalkeeper',
+      value: bestGk.player_name,
+      sub: `${bestGk.clean_sheet_count} clean sheet${bestGk.clean_sheet_count !== 1 ? 's' : ''} · ${bestGk.team_name}`,
     });
   }
   if (applicable.includes('clean_sheet')) {
@@ -1098,12 +1151,196 @@ function StatsOverviewLayout({ stats, width, height }) {
   );
 }
 
+// ─── SQUAD layout ───────────────────────────────────────────────────
+// Owns its own header (huge team name + "Squad" subtitle + divider) — the
+// root canvas skips its standard Header for type='squad'. Aesthetic is the
+// Liverpool lineup graphic: bold uppercase names on the gradient, no cards.
+function SquadLayout({ team, players, captains, width, height }) {
+  const roster = players || [];
+  const generalCaptainId = (captains || [])
+    .find((c) => c.tournament_id === null || c.tournament_id === undefined)?.player_id;
+  const accent = team?.primary_color || COLORS.accentBright;
+
+  // 9:16 (1080×1920) is the design baseline; scale proportionally by height
+  // for other aspect ratios so the type still feels punchy on a square crop.
+  const r = Math.max(0.7, height / 1920);
+
+  const useTwoCols = roster.length > 14;
+  const columns = useTwoCols
+    ? [roster.slice(0, Math.ceil(roster.length / 2)), roster.slice(Math.ceil(roster.length / 2))]
+    : [roster];
+  const longestCol = Math.max(...columns.map((c) => c.length), 1);
+
+  // Extra shrink only kicks in when a column would otherwise overflow the
+  // body area — keeps small squads at the full hero-sized text.
+  const baseNameSize = 38 * r;
+  const baseLineHeight = 1.6;
+  const headerBlockH = 96 * r + 48 * r + 24 + 24 + 12; // title + squad + spacing + divider
+  const bodyH = height - 40 /* top pad */ - headerBlockH - 96 /* footer space */;
+  const desiredRowH = baseNameSize * baseLineHeight;
+  const fit = Math.min(1, bodyH / (desiredRowH * longestCol));
+  const nameSize = Math.max(18, Math.round(baseNameSize * fit));
+  const titleSize = Math.round(96 * r);
+  const subtitleSize = Math.round(48 * r);
+  const badgeFont = Math.max(11, Math.round(14 * r));
+  const starSize = Math.max(20, Math.round(nameSize * 0.85));
+
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      padding: '40px 40px 80px 40px',
+      boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      {/* Header — explicit, NOT the shared Header component */}
+      <div style={{ paddingLeft: 40, paddingRight: 40 }}>
+        <div style={{
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 800,
+          fontSize: titleSize,
+          color: COLORS.onDark,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+          textShadow: '0 4px 24px rgba(0,30,48,0.35)',
+        }}>
+          {team?.name || 'Team'}
+        </div>
+        <div style={{
+          marginTop: 8,
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 800,
+          fontSize: subtitleSize,
+          color: 'rgba(255,255,255,0.6)',
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+        }}>
+          Squad
+        </div>
+        <div style={{
+          borderBottom: '1px solid rgba(255,255,255,0.2)',
+          width: '100%',
+          margin: '24px 0',
+        }} />
+      </div>
+
+      {/* Body — player names list */}
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'grid',
+        gridTemplateColumns: useTwoCols ? '1fr 1fr' : '1fr',
+        gap: useTwoCols ? 32 : 0,
+      }}>
+        {roster.length === 0 ? (
+          <div style={{
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: 22,
+            textAlign: 'center',
+            paddingLeft: 40,
+            paddingTop: 40,
+          }}>
+            No players on the roster yet.
+          </div>
+        ) : (
+          columns.map((col, ci) => (
+            <div key={ci} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              paddingLeft: 40,
+            }}>
+              {col.map((p) => {
+                const isCaptain = p.id === generalCaptainId;
+                const isGK = p.position === 'Goalkeeper';
+                return (
+                  <div key={p.id} style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontSize: nameSize,
+                    fontWeight: 700,
+                    color: COLORS.onDark,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    lineHeight: baseLineHeight,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    <span style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      minWidth: 0,
+                    }}>
+                      {p.name}
+                    </span>
+                    {isGK && (
+                      <span style={{
+                        flexShrink: 0,
+                        padding: '2px 10px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(255,255,255,0.5)',
+                        background: 'transparent',
+                        color: COLORS.onDark,
+                        fontFamily: FONT_LABEL,
+                        fontSize: badgeFont,
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        lineHeight: 1,
+                      }}>
+                        GK
+                      </span>
+                    )}
+                    {isCaptain && (
+                      <span style={{
+                        flexShrink: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: starSize * 1.35,
+                        height: starSize * 1.35,
+                        borderRadius: 999,
+                        background: `linear-gradient(135deg, ${accent} 0%, ${team?.secondary_color || accent} 100%)`,
+                        color: '#ffffff',
+                        fontFamily: FONT_DISPLAY,
+                        fontWeight: 900,
+                        fontSize: starSize * 0.78,
+                        lineHeight: 1,
+                        letterSpacing: '-0.04em',
+                        boxShadow: `0 0 0 2px rgba(255,255,255,0.85),
+                                    0 0 18px ${accent}88,
+                                    0 2px 8px rgba(0,0,0,0.35)`,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+                        transform: 'translateY(-1px)',
+                      }}>
+                        C
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+      <span style={{ display: 'none' }}>{width}x{height}</span>
+    </div>
+  );
+}
+
 // ─── Root component ────────────────────────────────────────────────
 const ExportCanvas = forwardRef(function ExportCanvas(
-  { type, tournament, matches, standings, stats, rounds, aspectRatio },
+  { type, tournament, matches, standings, stats, rounds, aspectRatio,
+    team, players, captains, groupName },
   ref,
 ) {
   const { w, h } = getDims(aspectRatio);
+  const isSquad = type === 'squad';
+  const headerSubtitle = type === 'group_standings' && groupName
+    ? `Group ${groupName}`
+    : null;
 
   return (
     <div
@@ -1142,15 +1379,17 @@ const ExportCanvas = forwardRef(function ExportCanvas(
         filter: 'blur(60px)',
       }} />
 
-      {/* Header */}
-      <div style={{
-        position: 'absolute',
-        top: 40,
-        left: 40,
-        right: 40,
-      }}>
-        <Header tournament={tournament} />
-      </div>
+      {/* Header — SquadLayout draws its own, so skip the shared Header for it */}
+      {!isSquad && (
+        <div style={{
+          position: 'absolute',
+          top: 40,
+          left: 40,
+          right: 40,
+        }}>
+          <Header tournament={tournament} subtitle={headerSubtitle} />
+        </div>
+      )}
 
       {/* Body */}
       {type === 'bracket' && (
@@ -1168,11 +1407,17 @@ const ExportCanvas = forwardRef(function ExportCanvas(
       {type === 'standings' && (
         <StandingsLayout standings={standings} width={w} height={h} />
       )}
+      {type === 'group_standings' && (
+        <StandingsLayout standings={standings} width={w} height={h} advanceAccent />
+      )}
       {type === 'stats_overview' && (
         <StatsOverviewLayout stats={stats} width={w} height={h} />
       )}
       {(type === 'top_scorers' || type === 'clean_sheets' || type === 'most_wins') && (
         <SingleLeaderboardLayout stats={stats} kind={type} width={w} height={h} />
+      )}
+      {type === 'squad' && (
+        <SquadLayout team={team} players={players} captains={captains} width={w} height={h} />
       )}
 
       <Footer />
