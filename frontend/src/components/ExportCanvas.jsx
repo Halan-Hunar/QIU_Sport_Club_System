@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from 'react';
-import { Trophy, Target, ShieldCheck, Star } from 'lucide-react';
+import { Trophy, Target, ShieldCheck, Star, Shield } from 'lucide-react';
 
 // "Vibrant Sky" palette — pulled directly from tailwind.config.js so
 // exports feel like an extension of the website rather than a separate brand.
@@ -1018,6 +1018,8 @@ function StatsOverviewLayout({ stats, width, height }) {
   const champion = stats.champion;
   const topScorer = stats.top_scorers?.[0];
   const cleanSheet = stats.clean_sheets?.[0];
+  const bestPlayer = stats.best_player;
+  const bestGk = stats.best_gk;
 
   // Build headline cards based on applicable
   const headlines = [];
@@ -1027,11 +1029,27 @@ function StatsOverviewLayout({ stats, width, height }) {
       value: champion?.name, sub: champion ? (champion.kind === 'player' ? 'Player' : 'Team') : null,
     });
   }
+  if (bestPlayer) {
+    headlines.push({
+      key: 'best_player', Icon: Star, label: 'Best Player',
+      value: bestPlayer.player_name,
+      sub: bestPlayer.goal_count > 0
+        ? `${bestPlayer.goal_count} ${bestPlayer.goal_count === 1 ? 'goal' : 'goals'} · ${bestPlayer.team_name}`
+        : bestPlayer.team_name,
+    });
+  }
   if (applicable.includes('top_scorer')) {
     headlines.push({
       key: 'top_scorer', Icon: Target, label: 'Top Scorer',
       value: topScorer?.player_name,
       sub: topScorer ? `${topScorer.goal_count} ${topScorer.goal_count === 1 ? 'goal' : 'goals'}` : null,
+    });
+  }
+  if (bestGk) {
+    headlines.push({
+      key: 'best_gk', Icon: Shield, label: 'Best Goalkeeper',
+      value: bestGk.player_name,
+      sub: `${bestGk.clean_sheet_count} clean sheet${bestGk.clean_sheet_count !== 1 ? 's' : ''} · ${bestGk.team_name}`,
     });
   }
   if (applicable.includes('clean_sheet')) {
@@ -1134,156 +1152,179 @@ function StatsOverviewLayout({ stats, width, height }) {
 }
 
 // ─── SQUAD layout ───────────────────────────────────────────────────
+// Owns its own header (huge team name + "Squad" subtitle + divider) — the
+// root canvas skips its standard Header for type='squad'. Aesthetic is the
+// Liverpool lineup graphic: bold uppercase names on the gradient, no cards.
 function SquadLayout({ team, players, captains, width, height }) {
   const roster = players || [];
   const generalCaptainId = (captains || [])
     .find((c) => c.tournament_id === null || c.tournament_id === undefined)?.player_id;
+  const accent = team?.primary_color || COLORS.accentBright;
 
-  const useTwoCols = roster.length > 11;
+  // 9:16 (1080×1920) is the design baseline; scale proportionally by height
+  // for other aspect ratios so the type still feels punchy on a square crop.
+  const r = Math.max(0.7, height / 1920);
+
+  const useTwoCols = roster.length > 14;
   const columns = useTwoCols
     ? [roster.slice(0, Math.ceil(roster.length / 2)), roster.slice(Math.ceil(roster.length / 2))]
     : [roster];
+  const longestCol = Math.max(...columns.map((c) => c.length), 1);
 
-  // Scale row metrics down a touch when the roster is large so a 22-player
-  // squad still fits the canvas with breathing room.
-  const longestCol = Math.max(...columns.map((c) => c.length));
-  const s = longestCol <= 11 ? 1 : Math.max(0.7, 11 / longestCol);
-  const sz = (v) => Math.round(v * s);
-
-  const accent = team?.primary_color || COLORS.accent;
-  const accentAlt = team?.secondary_color || COLORS.bgSolid;
+  // Extra shrink only kicks in when a column would otherwise overflow the
+  // body area — keeps small squads at the full hero-sized text.
+  const baseNameSize = 38 * r;
+  const baseLineHeight = 1.6;
+  const headerBlockH = 96 * r + 48 * r + 24 + 24 + 12; // title + squad + spacing + divider
+  const bodyH = height - 40 /* top pad */ - headerBlockH - 96 /* footer space */;
+  const desiredRowH = baseNameSize * baseLineHeight;
+  const fit = Math.min(1, bodyH / (desiredRowH * longestCol));
+  const nameSize = Math.max(18, Math.round(baseNameSize * fit));
+  const titleSize = Math.round(96 * r);
+  const subtitleSize = Math.round(48 * r);
+  const badgeFont = Math.max(11, Math.round(14 * r));
+  const starSize = Math.max(20, Math.round(nameSize * 0.85));
 
   return (
     <div style={{
       position: 'absolute',
-      top: 230,
-      left: 40,
-      right: 40,
-      bottom: 80,
-      overflow: 'hidden',
-      fontFamily: FONT_LABEL,
+      inset: 0,
+      padding: '40px 40px 80px 40px',
+      boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'center',
+      overflow: 'hidden',
     }}>
-      {roster.length === 0 ? (
+      {/* Header — explicit, NOT the shared Header component */}
+      <div style={{ paddingLeft: 40, paddingRight: 40 }}>
         <div style={{
-          color: COLORS.onDarkSoft,
-          fontSize: 22,
-          textAlign: 'center',
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 800,
+          fontSize: titleSize,
+          color: COLORS.onDark,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+          textShadow: '0 4px 24px rgba(0,30,48,0.35)',
         }}>
-          No players on the roster yet.
+          {team?.name || 'Team'}
         </div>
-      ) : (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: useTwoCols ? '1fr 1fr' : '1fr',
-          gap: useTwoCols ? sz(20) : 0,
-          maxWidth: useTwoCols ? '100%' : 720,
-          margin: '0 auto',
-          width: '100%',
+          marginTop: 8,
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 800,
+          fontSize: subtitleSize,
+          color: 'rgba(255,255,255,0.6)',
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
         }}>
-          {columns.map((col, ci) => (
-            <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: sz(10) }}>
+          Squad
+        </div>
+        <div style={{
+          borderBottom: '1px solid rgba(255,255,255,0.2)',
+          width: '100%',
+          margin: '24px 0',
+        }} />
+      </div>
+
+      {/* Body — player names list */}
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'grid',
+        gridTemplateColumns: useTwoCols ? '1fr 1fr' : '1fr',
+        gap: useTwoCols ? 32 : 0,
+      }}>
+        {roster.length === 0 ? (
+          <div style={{
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: 22,
+            textAlign: 'center',
+            paddingLeft: 40,
+            paddingTop: 40,
+          }}>
+            No players on the roster yet.
+          </div>
+        ) : (
+          columns.map((col, ci) => (
+            <div key={ci} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              paddingLeft: 40,
+            }}>
               {col.map((p) => {
                 const isCaptain = p.id === generalCaptainId;
                 const isGK = p.position === 'Goalkeeper';
-                const avatarSize = sz(48);
-                const nameSize = sz(22);
                 return (
                   <div key={p.id} style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontSize: nameSize,
+                    fontWeight: 700,
+                    color: COLORS.onDark,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    lineHeight: baseLineHeight,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: sz(14),
-                    padding: `${sz(12)}px ${sz(18)}px`,
-                    background: 'rgba(255,255,255,0.08)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: sz(14),
-                    backdropFilter: 'blur(2px)',
+                    gap: 14,
+                    whiteSpace: 'nowrap',
                   }}>
-                    <div style={{
-                      width: avatarSize,
-                      height: avatarSize,
-                      borderRadius: 999,
-                      background: `linear-gradient(135deg, ${accent}, ${accentAlt})`,
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontFamily: FONT_DISPLAY,
-                      fontSize: avatarSize * 0.46,
-                      fontWeight: 700,
-                      flexShrink: 0,
-                      boxShadow: '0 2px 6px rgba(0,30,48,0.25)',
-                    }}>
-                      {(p.name || '?').charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: sz(8),
+                    <span style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                       minWidth: 0,
                     }}>
+                      {p.name}
+                    </span>
+                    {isGK && (
                       <span style={{
-                        fontFamily: FONT_DISPLAY,
-                        fontSize: nameSize,
-                        fontWeight: 700,
+                        flexShrink: 0,
+                        padding: '2px 10px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(255,255,255,0.5)',
+                        background: 'transparent',
                         color: COLORS.onDark,
-                        letterSpacing: '-0.01em',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap',
-                        textOverflow: 'ellipsis',
-                        minWidth: 0,
+                        fontFamily: FONT_LABEL,
+                        fontSize: badgeFont,
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        lineHeight: 1,
                       }}>
-                        {p.name}
+                        GK
                       </span>
-                      {isGK && (
-                        <span style={{
-                          flexShrink: 0,
-                          padding: `${sz(2)}px ${sz(8)}px`,
-                          borderRadius: 999,
-                          border: '1px solid rgba(255,255,255,0.6)',
-                          color: COLORS.onDark,
-                          fontFamily: FONT_LABEL,
-                          fontSize: sz(11),
-                          fontWeight: 700,
-                          letterSpacing: '0.12em',
-                          textTransform: 'uppercase',
-                          background: 'transparent',
-                        }}>
-                          GK
-                        </span>
-                      )}
-                      {isCaptain && (
-                        <span style={{
-                          flexShrink: 0,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: sz(4),
-                          padding: `${sz(2)}px ${sz(8)}px`,
-                          borderRadius: 999,
-                          background: 'rgba(255,193,7,0.18)',
-                          border: '1px solid rgba(255,193,7,0.55)',
-                          color: '#fde68a',
-                          fontFamily: FONT_LABEL,
-                          fontSize: sz(11),
-                          fontWeight: 700,
-                          letterSpacing: '0.12em',
-                          textTransform: 'uppercase',
-                        }}>
-                          <Star size={sz(12)} strokeWidth={2.5} fill="currentColor" />
-                          Captain
-                        </span>
-                      )}
-                    </div>
+                    )}
+                    {isCaptain && (
+                      <span style={{
+                        flexShrink: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: starSize * 1.35,
+                        height: starSize * 1.35,
+                        borderRadius: 999,
+                        background: `linear-gradient(135deg, ${accent} 0%, ${team?.secondary_color || accent} 100%)`,
+                        color: '#ffffff',
+                        fontFamily: FONT_DISPLAY,
+                        fontWeight: 900,
+                        fontSize: starSize * 0.78,
+                        lineHeight: 1,
+                        letterSpacing: '-0.04em',
+                        boxShadow: `0 0 0 2px rgba(255,255,255,0.85),
+                                    0 0 18px ${accent}88,
+                                    0 2px 8px rgba(0,0,0,0.35)`,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+                        transform: 'translateY(-1px)',
+                      }}>
+                        C
+                      </span>
+                    )}
                   </div>
                 );
               })}
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
       <span style={{ display: 'none' }}>{width}x{height}</span>
     </div>
   );
@@ -1338,23 +1379,17 @@ const ExportCanvas = forwardRef(function ExportCanvas(
         filter: 'blur(60px)',
       }} />
 
-      {/* Header */}
-      <div style={{
-        position: 'absolute',
-        top: 40,
-        left: 40,
-        right: 40,
-      }}>
-        {isSquad ? (
-          <Header
-            title={team?.name || 'Team'}
-            pillText="Squad"
-            pillBg={team?.primary_color || COLORS.accent}
-          />
-        ) : (
+      {/* Header — SquadLayout draws its own, so skip the shared Header for it */}
+      {!isSquad && (
+        <div style={{
+          position: 'absolute',
+          top: 40,
+          left: 40,
+          right: 40,
+        }}>
           <Header tournament={tournament} subtitle={headerSubtitle} />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Body */}
       {type === 'bracket' && (
