@@ -15,6 +15,7 @@ import StandingsTable from '../components/StandingsTable';
 import MatchCard from '../components/MatchCard';
 import MatchDetailModal from '../components/MatchDetailModal';
 import ExportModal from '../components/ExportModal';
+import GroupDrawModal from '../components/GroupDrawModal';
 
 const formatLabels = {
   single_elim:    'Single Elimination',
@@ -351,6 +352,7 @@ export default function TournamentDetail() {
   const [openMatch, setOpenMatch] = useState(null);
   const [openPlayerId, setOpenPlayerId] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [groupDrawOpen, setGroupDrawOpen] = useState(false);
   const [stageView, setStageView] = useState('group'); // group_knockout only
 
   const {
@@ -731,6 +733,15 @@ export default function TournamentDetail() {
               {matchSaving ? 'Advancing…' : 'Advance to Knockout'}
             </button>
           )}
+          {isAdmin && isGroupKnockout && !hasKnockout && teams.length >= 4 && (
+            <button
+              onClick={() => setGroupDrawOpen(true)}
+              disabled={matchSaving}
+              className="sc-btn-secondary !py-2 !px-4"
+            >
+              Set Groups
+            </button>
+          )}
           {isAdmin && (isIndividual ? players.length : teams.length) >= 2 && (
             <button
               onClick={handleGenerate}
@@ -838,6 +849,12 @@ export default function TournamentDetail() {
         open={!!openPlayerId}
         onClose={() => setOpenPlayerId(null)}
         playerId={openPlayerId}
+      />
+      <GroupDrawModal
+        open={groupDrawOpen}
+        onClose={() => setGroupDrawOpen(false)}
+        tournamentId={id}
+        teams={teams}
       />
       <ExportModal
         open={exportOpen}

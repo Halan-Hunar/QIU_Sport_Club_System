@@ -40,6 +40,10 @@ const registerPlayerSchema = z.object({
   seed: z.number().int().min(1).max(999).optional().nullable(),
 });
 
+const assignGroupsSchema = z.object({
+  groups: z.record(z.string().trim().min(1).max(10), z.array(z.string().uuid())),
+});
+
 // ─── Helpers ──────────────────────────────────────────────────
 const sendValidationError = (res, parsed) =>
   res.status(400).json({ error: parsed.error.errors[0].message });
@@ -242,6 +246,80 @@ router.post('/:id/players', requireAuth, requireAdmin, async (req, res) => {
 
   logger.info(`Player registered: ${parsed.data.player_id} → tournament ${req.params.id} by ${req.user.email}`);
   res.status(201).json({ registration: data });
+});
+
+// ─── POST /api/tournaments/:id/assign-groups ──────────────────
+// Manual group draw. Body shape: { groups: { "A": [team_uuid, …], … } }.
+// Validates every team is registered to this tournament and no team appears
+// in two groups, then writes `group_name` on `tournament_teams`. Teams that
+// were previously assigned but aren't present in the payload get cleared
+// back to null so the modal can also be used to un-draw / redraw.
+router.post('/:id/assign-groups', requireAuth, requireAdmin, async (req, res) => {
+  const parsed = assignGroupsSchema.safeParse(req.body);
+  if (!parsed.success) return sendValidationError(res, parsed);
+
+  const tournamentId = req.params.id;
+  const groups = parsed.data.groups;
+
+  // Collect every team_id in the payload, watching for duplicates across groups.
+  const seen = new Set();
+  const assignments = []; // [{ team_id, group_name }]
+  for (const [groupName, teamIds] of Object.entries(groups)) {
+    for (const teamId of teamIds) {
+      if (seen.has(teamId)) {
+        return res.status(400).json({ error: `Team ${teamId} is assigned to more than one group.` });
+      }
+      seen.add(teamId);
+      assignments.push({ team_id: teamId, group_name: groupName });
+    }
+  }
+
+  // Verify every payload team is actually registered in this tournament.
+  const { data: registered, error: rErr } = await supabaseAdmin
+    .from('tournament_teams')
+    .select('team_id')
+    .eq('tournament_id', tournamentId);
+  if (rErr) {
+    logger.error(`Assign groups – load registrations failed: ${rErr.message}`);
+    return res.status(500).json({ error: 'Failed to load registrations' });
+  }
+  const registeredIds = new Set((registered ?? []).map((r) => r.team_id));
+  for (const teamId of seen) {
+    if (!registeredIds.has(teamId)) {
+      return res.status(400).json({ error: `Team ${teamId} is not registered in this tournament.` });
+    }
+  }
+
+  // Clear group_name for any registered team not in the payload, so a redraw
+  // doesn't leave stale assignments behind.
+  const toClear = [...registeredIds].filter((id) => !seen.has(id));
+  if (toClear.length > 0) {
+    const { error: clrErr } = await supabaseAdmin
+      .from('tournament_teams')
+      .update({ group_name: null })
+      .eq('tournament_id', tournamentId)
+      .in('team_id', toClear);
+    if (clrErr) {
+      logger.error(`Assign groups – clear failed: ${clrErr.message}`);
+      return res.status(500).json({ error: 'Failed to clear previous group assignments' });
+    }
+  }
+
+  // Apply the new assignments.
+  for (const { team_id, group_name } of assignments) {
+    const { error: upErr } = await supabaseAdmin
+      .from('tournament_teams')
+      .update({ group_name })
+      .eq('tournament_id', tournamentId)
+      .eq('team_id', team_id);
+    if (upErr) {
+      logger.error(`Assign groups – update failed: ${upErr.message}`);
+      return res.status(500).json({ error: 'Failed to save group assignments' });
+    }
+  }
+
+  logger.info(`Groups assigned: tournament ${tournamentId} (${assignments.length} teams) by ${req.user.email}`);
+  res.json({ success: true });
 });
 
 // ─── POST /api/tournaments/:id/advance-groups ─────────────────

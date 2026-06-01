@@ -128,6 +128,48 @@ export const useTournamentStore = create((set, get) => ({
     }
   },
 
+  // ─── Group draw ────────────────────────────────────────────
+  assignGroups: async (tournamentId, groups) => {
+    set({ saving: true, error: null });
+    try {
+      const res = await apiFetch(`${API}/api/tournaments/${tournamentId}/assign-groups`, {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify({ groups }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        set({ error: data.error || 'Failed to save group draw', saving: false });
+        return false;
+      }
+      // Mirror the new group_name values onto the cached registrations so
+      // the UI reflects them without a full refetch.
+      set((s) => {
+        if (!s.current || s.current.tournament.id !== tournamentId) {
+          return { saving: false };
+        }
+        const teamToGroup = new Map();
+        for (const [groupName, teamIds] of Object.entries(groups)) {
+          for (const teamId of teamIds) teamToGroup.set(teamId, groupName);
+        }
+        return {
+          saving: false,
+          current: {
+            ...s.current,
+            teams: s.current.teams.map((r) => ({
+              ...r,
+              group_name: teamToGroup.has(r.team.id) ? teamToGroup.get(r.team.id) : null,
+            })),
+          },
+        };
+      });
+      return true;
+    } catch {
+      set({ error: 'Connection failed.', saving: false });
+      return false;
+    }
+  },
+
   // ─── Team registration ─────────────────────────────────────
   registerTeam: async (tournamentId, payload) => {
     set({ saving: true, error: null });
