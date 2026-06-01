@@ -79,6 +79,27 @@ export const useMatchStore = create((set, get) => ({
     }
   },
 
+  advanceGroups: async (tournamentId) => {
+    set({ saving: true, error: null });
+    try {
+      const res = await apiFetch(`${API}/api/tournaments/${tournamentId}/advance-groups`, {
+        method: 'POST',
+        headers: jsonHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        set({ error: data.error || 'Failed to advance groups', saving: false });
+        return false;
+      }
+      set({ saving: false });
+      await get().fetchMatches(tournamentId);
+      return true;
+    } catch {
+      set({ error: 'Connection failed.', saving: false });
+      return false;
+    }
+  },
+
   updateMatch: async (matchId, payload) => {
     set({ saving: true, error: null });
     try {
