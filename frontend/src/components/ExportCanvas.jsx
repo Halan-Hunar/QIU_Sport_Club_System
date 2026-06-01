@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from 'react';
-import { Trophy, Target, ShieldCheck } from 'lucide-react';
+import { Trophy, Target, ShieldCheck, Star } from 'lucide-react';
 
 // "Vibrant Sky" palette — pulled directly from tailwind.config.js so
 // exports feel like an extension of the website rather than a separate brand.
@@ -83,7 +83,12 @@ function formatExportDate() {
 }
 
 // ─── Header / Footer ────────────────────────────────────────────────
-function Header({ tournament }) {
+// `pillText` / `pillBg` let callers swap the default sport-type pill for
+// something custom (e.g. a coloured "Squad" badge tinted to the team colour).
+function Header({ tournament, title, pillText, pillBg }) {
+  const resolvedTitle = title ?? tournament?.name ?? 'Tournament';
+  const resolvedPill = pillText ?? (tournament?.sport_type || '').replace(/_/g, ' ');
+  const resolvedBg = pillBg || 'rgba(255,255,255,0.18)';
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{
@@ -95,14 +100,14 @@ function Header({ tournament }) {
         lineHeight: 1.05,
         textShadow: '0 2px 14px rgba(0,30,48,0.2)',
       }}>
-        {tournament?.name || 'Tournament'}
+        {resolvedTitle}
       </div>
       <div style={{
         display: 'inline-block',
         marginTop: 14,
         padding: '8px 16px',
         borderRadius: 999,
-        background: 'rgba(255,255,255,0.18)',
+        background: resolvedBg,
         border: '1px solid rgba(255,255,255,0.35)',
         color: COLORS.onDark,
         fontFamily: FONT_LABEL,
@@ -112,7 +117,7 @@ function Header({ tournament }) {
         letterSpacing: '0.05em',
         backdropFilter: 'blur(2px)',
       }}>
-        {(tournament?.sport_type || '').replace(/_/g, ' ')}
+        {resolvedPill}
       </div>
     </div>
   );
@@ -1098,12 +1103,170 @@ function StatsOverviewLayout({ stats, width, height }) {
   );
 }
 
+// ─── SQUAD layout ───────────────────────────────────────────────────
+function SquadLayout({ team, players, captains, width, height }) {
+  const roster = players || [];
+  const generalCaptainId = (captains || [])
+    .find((c) => c.tournament_id === null || c.tournament_id === undefined)?.player_id;
+
+  const useTwoCols = roster.length > 11;
+  const columns = useTwoCols
+    ? [roster.slice(0, Math.ceil(roster.length / 2)), roster.slice(Math.ceil(roster.length / 2))]
+    : [roster];
+
+  // Scale row metrics down a touch when the roster is large so a 22-player
+  // squad still fits the canvas with breathing room.
+  const longestCol = Math.max(...columns.map((c) => c.length));
+  const s = longestCol <= 11 ? 1 : Math.max(0.7, 11 / longestCol);
+  const sz = (v) => Math.round(v * s);
+
+  const accent = team?.primary_color || COLORS.accent;
+  const accentAlt = team?.secondary_color || COLORS.bgSolid;
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 230,
+      left: 40,
+      right: 40,
+      bottom: 80,
+      overflow: 'hidden',
+      fontFamily: FONT_LABEL,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+    }}>
+      {roster.length === 0 ? (
+        <div style={{
+          color: COLORS.onDarkSoft,
+          fontSize: 22,
+          textAlign: 'center',
+        }}>
+          No players on the roster yet.
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: useTwoCols ? '1fr 1fr' : '1fr',
+          gap: useTwoCols ? sz(20) : 0,
+          maxWidth: useTwoCols ? '100%' : 720,
+          margin: '0 auto',
+          width: '100%',
+        }}>
+          {columns.map((col, ci) => (
+            <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: sz(10) }}>
+              {col.map((p) => {
+                const isCaptain = p.id === generalCaptainId;
+                const isGK = p.position === 'Goalkeeper';
+                const avatarSize = sz(48);
+                const nameSize = sz(22);
+                return (
+                  <div key={p.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: sz(14),
+                    padding: `${sz(12)}px ${sz(18)}px`,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: sz(14),
+                    backdropFilter: 'blur(2px)',
+                  }}>
+                    <div style={{
+                      width: avatarSize,
+                      height: avatarSize,
+                      borderRadius: 999,
+                      background: `linear-gradient(135deg, ${accent}, ${accentAlt})`,
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: FONT_DISPLAY,
+                      fontSize: avatarSize * 0.46,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      boxShadow: '0 2px 6px rgba(0,30,48,0.25)',
+                    }}>
+                      {(p.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: sz(8),
+                      minWidth: 0,
+                    }}>
+                      <span style={{
+                        fontFamily: FONT_DISPLAY,
+                        fontSize: nameSize,
+                        fontWeight: 700,
+                        color: COLORS.onDark,
+                        letterSpacing: '-0.01em',
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis',
+                        minWidth: 0,
+                      }}>
+                        {p.name}
+                      </span>
+                      {isGK && (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: `${sz(2)}px ${sz(8)}px`,
+                          borderRadius: 999,
+                          border: '1px solid rgba(255,255,255,0.6)',
+                          color: COLORS.onDark,
+                          fontFamily: FONT_LABEL,
+                          fontSize: sz(11),
+                          fontWeight: 700,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                          background: 'transparent',
+                        }}>
+                          GK
+                        </span>
+                      )}
+                      {isCaptain && (
+                        <span style={{
+                          flexShrink: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: sz(4),
+                          padding: `${sz(2)}px ${sz(8)}px`,
+                          borderRadius: 999,
+                          background: 'rgba(255,193,7,0.18)',
+                          border: '1px solid rgba(255,193,7,0.55)',
+                          color: '#fde68a',
+                          fontFamily: FONT_LABEL,
+                          fontSize: sz(11),
+                          fontWeight: 700,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                        }}>
+                          <Star size={sz(12)} strokeWidth={2.5} fill="currentColor" />
+                          Captain
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+      <span style={{ display: 'none' }}>{width}x{height}</span>
+    </div>
+  );
+}
+
 // ─── Root component ────────────────────────────────────────────────
 const ExportCanvas = forwardRef(function ExportCanvas(
-  { type, tournament, matches, standings, stats, rounds, aspectRatio },
+  { type, tournament, matches, standings, stats, rounds, aspectRatio,
+    team, players, captains },
   ref,
 ) {
   const { w, h } = getDims(aspectRatio);
+  const isSquad = type === 'squad';
 
   return (
     <div
@@ -1149,7 +1312,15 @@ const ExportCanvas = forwardRef(function ExportCanvas(
         left: 40,
         right: 40,
       }}>
-        <Header tournament={tournament} />
+        {isSquad ? (
+          <Header
+            title={team?.name || 'Team'}
+            pillText="Squad"
+            pillBg={team?.primary_color || COLORS.accent}
+          />
+        ) : (
+          <Header tournament={tournament} />
+        )}
       </div>
 
       {/* Body */}
@@ -1173,6 +1344,9 @@ const ExportCanvas = forwardRef(function ExportCanvas(
       )}
       {(type === 'top_scorers' || type === 'clean_sheets' || type === 'most_wins') && (
         <SingleLeaderboardLayout stats={stats} kind={type} width={w} height={h} />
+      )}
+      {type === 'squad' && (
+        <SquadLayout team={team} players={players} captains={captains} width={w} height={h} />
       )}
 
       <Footer />
