@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabase, supabaseAdmin } from '../utils/supabase.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
+import { generateSingleElim } from './matches.js';
 
 const router = Router();
 
@@ -241,6 +242,101 @@ router.post('/:id/players', requireAuth, requireAdmin, async (req, res) => {
 
   logger.info(`Player registered: ${parsed.data.player_id} → tournament ${req.params.id} by ${req.user.email}`);
   res.status(201).json({ registration: data });
+});
+
+// ─── POST /api/tournaments/:id/advance-groups ─────────────────
+// Generate Semi Final matches from the current group standings: top 2 from
+// each group, paired across adjacent groups (A1 vs B2, B1 vs A2, …). Does
+// not require the group stage to be fully completed — admins use this to
+// commit to a knockout draw based on whatever standings exist right now.
+router.post('/:id/advance-groups', requireAuth, requireAdmin, async (req, res) => {
+  const tournamentId = req.params.id;
+
+  const { data: tournament, error: tErr } = await supabaseAdmin
+    .from('tournaments')
+    .select('id, format')
+    .eq('id', tournamentId)
+    .single();
+
+  if (tErr || !tournament) {
+    return res.status(404).json({ error: 'Tournament not found' });
+  }
+  if (tournament.format !== 'group_knockout') {
+    return res.status(400).json({ error: 'Only group + knockout tournaments support advancement.' });
+  }
+
+  const { data: standings, error: sErr } = await supabaseAdmin
+    .from('tournament_standings')
+    .select('*')
+    .eq('tournament_id', tournamentId);
+
+  if (sErr) {
+    logger.error(`Advance groups – load standings failed: ${sErr.message}`);
+    return res.status(500).json({ error: 'Failed to load standings' });
+  }
+
+  const byGroup = new Map();
+  for (const row of standings ?? []) {
+    if (!row.group_name) continue;
+    if (!byGroup.has(row.group_name)) byGroup.set(row.group_name, []);
+    byGroup.get(row.group_name).push(row);
+  }
+  if (byGroup.size < 2) {
+    return res.status(400).json({ error: 'Need at least 2 groups to generate semi finals.' });
+  }
+
+  // Sort each group by points, GD, GF — same tie-breakers as the standings endpoint.
+  const sortedGroups = [...byGroup.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, rows]) => ({
+      name,
+      teams: rows
+        .sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
+          return b.goals_for - a.goals_for;
+        })
+        .slice(0, 2),
+    }));
+
+  if (sortedGroups.some((g) => g.teams.length < 2)) {
+    return res.status(400).json({ error: 'Each group needs at least 2 teams in the standings.' });
+  }
+
+  // Seed advancers as [all 1st-places, all 2nd-places] so single-elim seeding
+  // (1v8, 4v5, 2v7, 3v6 …) produces the requested A1-vs-B2 / B1-vs-A2 pattern
+  // for 2 groups and a balanced bracket for larger group counts.
+  const advancers = [
+    ...sortedGroups.map((g) => g.teams[0]),
+    ...sortedGroups.map((g) => g.teams[1]),
+  ].map((row, idx) => ({ team_id: row.team_id, seed: idx + 1 }));
+
+  // Wipe any prior non-group matches so re-runs don't pile up duplicates.
+  const { error: delErr } = await supabaseAdmin
+    .from('matches')
+    .delete()
+    .eq('tournament_id', tournamentId)
+    .not('round', 'like', 'Group %');
+  if (delErr) {
+    logger.error(`Advance groups – wipe knockout failed: ${delErr.message}`);
+    return res.status(500).json({ error: 'Failed to clear existing knockout matches' });
+  }
+
+  const result = await generateSingleElim(tournamentId, advancers, { kind: 'team' });
+  if (result.error) {
+    logger.error(`Advance groups – bracket gen failed: ${result.error}`);
+    return res.status(400).json({ error: result.error });
+  }
+
+  const { data: inserted } = await supabaseAdmin
+    .from('matches')
+    .select()
+    .eq('tournament_id', tournamentId)
+    .not('round', 'like', 'Group %')
+    .order('match_number', { ascending: true });
+
+  logger.info(`Advanced groups: tournament ${tournamentId} → ${advancers.length} advancers by ${req.user.email}`);
+  res.status(201).json({ matches: inserted ?? [] });
 });
 
 // ─── DELETE /api/tournaments/:id/players/:playerId ────────────

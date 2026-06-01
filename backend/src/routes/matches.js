@@ -72,7 +72,7 @@ function roundRobinSchedule(competitors) {
   return rounds;
 }
 
-async function generateSingleElim(tournamentId, registrations, opts = {}) {
+export async function generateSingleElim(tournamentId, registrations, opts = {}) {
   const c = cols(opts.kind);
   if (registrations.length < 2) {
     return { error: `At least 2 ${opts.kind === 'player' ? 'players' : 'teams'} must be registered.` };

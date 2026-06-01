@@ -199,6 +199,8 @@ router.get('/tournament/:id', async (req, res) => {
     top_scorers: [],
     clean_sheets: [],
     most_wins: [],
+    best_player: null,
+    best_gk: null,
   };
 
   // ── Champion ───────────────────────────────────────────────
@@ -263,6 +265,7 @@ router.get('/tournament/:id', async (req, res) => {
           player_id: g.player_id,
           player_name: g.player?.name ?? null,
           jersey_number: g.player?.jersey_number ?? null,
+          team_id: g.team?.id ?? null,
           team_name: g.team?.name ?? null,
           team_color: g.team?.primary_color ?? null,
           goal_count: 0,
@@ -361,6 +364,100 @@ router.get('/tournament/:id', async (req, res) => {
         map.set(id, cur);
       }
       out.most_wins = [...map.values()].sort((a, b) => b.win_count - a.win_count);
+    }
+  }
+
+  // ── Best Player (top scorer from the winning team) ──────────
+  // Only meaningful for team tournaments — `winner_team_id` is derived the
+  // same way `champion` is: round-robin uses the standings leader, elim
+  // formats use the final's winner. We re-derive the team_id here rather
+  // than mutate the existing champion shape.
+  if (!tournament.is_individual && applicable.includes('top_scorer')) {
+    let winnerTeamId = null;
+    let winnerTeamName = null;
+    let winnerTeamColor = null;
+
+    if (tournament.format === 'round_robin') {
+      if (tournament.status === 'completed') {
+        const { data: standings } = await supabaseAdmin
+          .from('tournament_standings')
+          .select('team_id, team_name, primary_color, points, goal_diff, goals_for')
+          .eq('tournament_id', tournamentId);
+        if (standings?.length) {
+          const top = [...standings].sort(
+            (a, b) => b.points - a.points
+              || b.goal_diff - a.goal_diff
+              || b.goals_for - a.goals_for,
+          )[0];
+          if (top) {
+            winnerTeamId = top.team_id;
+            winnerTeamName = top.team_name;
+            winnerTeamColor = top.primary_color;
+          }
+        }
+      }
+    } else {
+      const { data: finals } = await supabaseAdmin
+        .from('matches')
+        .select(`
+          winner_id,
+          winner_team:teams!matches_winner_id_fkey(id, name, primary_color)
+        `)
+        .eq('tournament_id', tournamentId)
+        .is('next_match_id', null)
+        .eq('status', 'completed')
+        .order('match_number', { ascending: false })
+        .limit(1);
+      const final = finals?.[0];
+      if (final?.winner_team) {
+        winnerTeamId = final.winner_team.id;
+        winnerTeamName = final.winner_team.name;
+        winnerTeamColor = final.winner_team.primary_color;
+      }
+    }
+
+    if (winnerTeamId) {
+      const topFromWinner = out.top_scorers.find((s) => s.team_id === winnerTeamId);
+      if (topFromWinner) {
+        out.best_player = {
+          player_name: topFromWinner.player_name,
+          player_id: topFromWinner.player_id,
+          team_name: topFromWinner.team_name ?? winnerTeamName,
+          team_color: topFromWinner.team_color ?? winnerTeamColor,
+          goal_count: topFromWinner.goal_count,
+        };
+      } else {
+        out.best_player = {
+          player_name: null,
+          player_id: null,
+          team_name: winnerTeamName,
+          team_color: winnerTeamColor,
+          goal_count: 0,
+        };
+      }
+      applicable.push('best_player');
+    }
+  }
+
+  // ── Best GK (goalkeeper of the top clean-sheet team) ────────
+  if (applicable.includes('clean_sheet') && out.clean_sheets.length > 0) {
+    const top = out.clean_sheets[0];
+    const { data: keepers } = await supabaseAdmin
+      .from('players')
+      .select('id, name')
+      .eq('team_id', top.team_id)
+      .eq('position', 'Goalkeeper')
+      .limit(1);
+    const gk = keepers?.[0];
+    if (gk) {
+      out.best_gk = {
+        player_name: gk.name,
+        player_id: gk.id,
+        team_name: top.team_name,
+        team_color: top.team_color,
+        clean_sheet_count: top.clean_sheet_count,
+      };
+      applicable.push('best_gk');
     }
   }
 

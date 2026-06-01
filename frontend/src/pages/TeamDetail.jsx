@@ -6,6 +6,8 @@ import { useTeamStore } from '../store/teamStore';
 import AddPlayerModal from '../components/AddPlayerModal';
 import CreateTeamModal from '../components/CreateTeamModal';
 import RosterRow from '../components/RosterRow';
+import TeamExportModal from '../components/TeamExportModal';
+import { Share2 } from 'lucide-react';
 
 const positions = ['All', 'Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'N/A'];
 
@@ -50,6 +52,7 @@ export default function TeamDetail() {
   const [playerModal, setPlayerModal] = useState(false);
   const [editPlayer, setEditPlayer] = useState(null);
   const [editTeamOpen, setEditTeamOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [posFilter, setPosFilter] = useState('All');
 
   useEffect(() => { fetchTeamById(id); }, [id, fetchTeamById]);
@@ -143,13 +146,21 @@ export default function TeamDetail() {
             </div>
           </div>
 
-          {isAdmin && (
-            <button onClick={() => setEditTeamOpen(true)}
+          <div className="flex flex-col gap-2">
+            <button onClick={() => setExportOpen(true)}
                     className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
                                hover:!bg-white/25">
-              Edit Team
+              <Share2 size={16} strokeWidth={2.25} />
+              Export Squad
             </button>
-          )}
+            {isAdmin && (
+              <button onClick={() => setEditTeamOpen(true)}
+                      className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
+                                 hover:!bg-white/25">
+                Edit Team
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -241,6 +252,13 @@ export default function TeamDetail() {
         open={editTeamOpen}
         onClose={() => setEditTeamOpen(false)}
         team={team}
+      />
+      <TeamExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        team={team}
+        players={players}
+        captains={captains}
       />
     </motion.div>
   );
