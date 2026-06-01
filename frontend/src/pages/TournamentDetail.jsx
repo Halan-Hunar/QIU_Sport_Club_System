@@ -351,10 +351,11 @@ export default function TournamentDetail() {
   const [openMatch, setOpenMatch] = useState(null);
   const [openPlayerId, setOpenPlayerId] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [stageView, setStageView] = useState('group'); // group_knockout only
 
   const {
     matches, standings, saving: matchSaving, error: matchError,
-    fetchMatches, fetchStandings, generateBracket,
+    fetchMatches, fetchStandings, generateBracket, advanceGroups,
     subscribeToMatches, unsubscribe,
   } = useMatchStore();
 
@@ -401,6 +402,14 @@ export default function TournamentDetail() {
     if (ok) window.history.back();
   };
 
+  const handleAdvanceGroups = async () => {
+    if (!window.confirm(
+      'This will generate Semi Final matches based on current standings. Are you sure?',
+    )) return;
+    const ok = await advanceGroups(id);
+    if (ok) setStageView('knockout');
+  };
+
   const handleGenerate = async () => {
     if (!current) return;
     const verb = matches.length > 0 ? 'Regenerate' : 'Generate';
@@ -431,6 +440,22 @@ export default function TournamentDetail() {
   const players = current.players ?? [];
   const isIndividual = !!tournament.is_individual;
   const isBracketFormat = tournament.format === 'single_elim' || tournament.format === 'double_elim';
+  const isGroupKnockout = tournament.format === 'group_knockout';
+
+  const groupMatches = isGroupKnockout
+    ? matches.filter((m) => m.round?.startsWith('Group '))
+    : [];
+  const knockoutMatches = isGroupKnockout
+    ? matches.filter((m) => !m.round?.startsWith('Group '))
+    : [];
+  const hasKnockout = knockoutMatches.length > 0;
+  const groupStarted = standings.some((r) => (r.played ?? 0) > 0);
+  const showAdvanceButton = isAdmin
+    && isGroupKnockout
+    && stageView === 'group'
+    && groupMatches.length > 0
+    && groupStarted
+    && !hasKnockout;
 
   return (
     <motion.div
@@ -665,22 +690,61 @@ export default function TournamentDetail() {
 
       {/* Bracket / Standings — now works for both team and individual tournaments. */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-        <h2 className="font-display text-headline-lg text-ink">
-          {isBracketFormat ? 'Bracket' : 'Standings'}
-        </h2>
-        {isAdmin && (isIndividual ? players.length : teams.length) >= 2 && (
-          <button
-            onClick={handleGenerate}
-            disabled={matchSaving}
-            className="sc-btn-primary !py-2 !px-4"
-          >
-            {matchSaving
-              ? 'Generating…'
-              : matches.length > 0
-                ? 'Regenerate Bracket'
-                : 'Generate Bracket'}
-          </button>
-        )}
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="font-display text-headline-lg text-ink">
+            {isBracketFormat
+              ? 'Bracket'
+              : (isGroupKnockout && stageView === 'knockout' ? 'Knockout' : 'Standings')}
+          </h2>
+          {isGroupKnockout && hasKnockout && (
+            <div className="inline-flex bg-surface-low rounded-sm p-1">
+              <button
+                type="button"
+                onClick={() => setStageView('group')}
+                className={`px-3 py-1 rounded-sm text-xs font-label uppercase tracking-wider
+                            transition-colors ${stageView === 'group'
+                              ? 'bg-white text-primary shadow-card'
+                              : 'text-ink-variant hover:text-ink'}`}
+              >
+                Group Stage
+              </button>
+              <button
+                type="button"
+                onClick={() => setStageView('knockout')}
+                className={`px-3 py-1 rounded-sm text-xs font-label uppercase tracking-wider
+                            transition-colors ${stageView === 'knockout'
+                              ? 'bg-white text-primary shadow-card'
+                              : 'text-ink-variant hover:text-ink'}`}
+              >
+                Knockout
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {showAdvanceButton && (
+            <button
+              onClick={handleAdvanceGroups}
+              disabled={matchSaving}
+              className="sc-btn-secondary !py-2 !px-4"
+            >
+              {matchSaving ? 'Advancing…' : 'Advance to Knockout'}
+            </button>
+          )}
+          {isAdmin && (isIndividual ? players.length : teams.length) >= 2 && (
+            <button
+              onClick={handleGenerate}
+              disabled={matchSaving}
+              className="sc-btn-primary !py-2 !px-4"
+            >
+              {matchSaving
+                ? 'Generating…'
+                : matches.length > 0
+                  ? 'Regenerate Bracket'
+                  : 'Generate Bracket'}
+            </button>
+          )}
+        </div>
       </div>
 
       {matchError && (
@@ -718,13 +782,19 @@ export default function TournamentDetail() {
           isAdmin={isAdmin}
           onOpen={(m) => setOpenMatch(m)}
         />
+      ) : isGroupKnockout && stageView === 'knockout' && hasKnockout ? (
+        <Bracket
+          matches={knockoutMatches}
+          isAdmin={isAdmin}
+          onOpen={(m) => setOpenMatch(m)}
+        />
       ) : (
         <div className="space-y-8">
           {!isIndividual && <StandingsTable standings={standings} />}
           <div>
             <h3 className="font-display text-headline-md text-ink mb-3">Fixtures</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {matches.map((m) => (
+              {(isGroupKnockout ? groupMatches : matches).map((m) => (
                 <MatchCard
                   key={m.id}
                   match={m}

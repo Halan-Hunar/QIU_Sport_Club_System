@@ -83,7 +83,7 @@ function formatExportDate() {
 }
 
 // ─── Header / Footer ────────────────────────────────────────────────
-function Header({ tournament }) {
+function Header({ tournament, subtitle }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{
@@ -97,6 +97,19 @@ function Header({ tournament }) {
       }}>
         {tournament?.name || 'Tournament'}
       </div>
+      {subtitle && (
+        <div style={{
+          marginTop: 8,
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 700,
+          fontSize: 28,
+          color: COLORS.onDarkSoft,
+          letterSpacing: '-0.01em',
+          lineHeight: 1.1,
+        }}>
+          {subtitle}
+        </div>
+      )}
       <div style={{
         display: 'inline-block',
         marginTop: 14,
@@ -622,8 +635,12 @@ function ResultsLayout({ matches, width, height }) {
 }
 
 // ─── STANDINGS layout ────────────────────────────────────────────────
-function StandingsLayout({ standings, width, height }) {
+// `advanceAccent`: when true, top-2 rows get a green left border (used by the
+// group_standings export to telegraph who advances to the knockout stage).
+function StandingsLayout({ standings, width, height, advanceAccent }) {
   const rows = standings || [];
+  // Tertiary-container green from the design system — matches the ADV pill.
+  const ADVANCE_GREEN = '#15803d';
 
   return (
     <div style={{
@@ -679,14 +696,22 @@ function StandingsLayout({ standings, width, height }) {
           </div>
         )}
 
-        {rows.map((r, idx) => (
+        {rows.map((r, idx) => {
+          const advances = advanceAccent && idx < 2;
+          const leftBorder = advances
+            ? `5px solid ${ADVANCE_GREEN}`
+            : (!advanceAccent && idx === 0 ? `5px solid ${COLORS.accent}` : '5px solid transparent');
+          const rankColor = advances
+            ? ADVANCE_GREEN
+            : (!advanceAccent && idx === 0 ? COLORS.accent : COLORS.text);
+          return (
           <div key={r.team_id || idx} style={{
             display: 'grid',
             gridTemplateColumns: '60px 1fr 60px 60px 60px 60px 70px 70px 70px 80px',
             alignItems: 'center',
             padding: '18px 20px',
             background: idx % 2 === 0 ? COLORS.card : COLORS.cardAlt,
-            borderLeft: idx === 0 ? `5px solid ${COLORS.accent}` : '5px solid transparent',
+            borderLeft: leftBorder,
             fontSize: 18,
             color: COLORS.textVariant,
             fontVariantNumeric: 'tabular-nums',
@@ -694,7 +719,7 @@ function StandingsLayout({ standings, width, height }) {
             <span style={{
               fontWeight: 700,
               fontSize: 18,
-              color: idx === 0 ? COLORS.accent : COLORS.text,
+              color: rankColor,
             }}>
               {idx + 1}
             </span>
@@ -736,7 +761,8 @@ function StandingsLayout({ standings, width, height }) {
               {r.points ?? 0}
             </span>
           </div>
-        ))}
+          );
+        })}
       </div>
       <span style={{ display: 'none' }}>{width}x{height}</span>
     </div>
@@ -1100,10 +1126,13 @@ function StatsOverviewLayout({ stats, width, height }) {
 
 // ─── Root component ────────────────────────────────────────────────
 const ExportCanvas = forwardRef(function ExportCanvas(
-  { type, tournament, matches, standings, stats, rounds, aspectRatio },
+  { type, tournament, matches, standings, stats, rounds, aspectRatio, groupName },
   ref,
 ) {
   const { w, h } = getDims(aspectRatio);
+  const headerSubtitle = type === 'group_standings' && groupName
+    ? `Group ${groupName}`
+    : null;
 
   return (
     <div
@@ -1149,7 +1178,7 @@ const ExportCanvas = forwardRef(function ExportCanvas(
         left: 40,
         right: 40,
       }}>
-        <Header tournament={tournament} />
+        <Header tournament={tournament} subtitle={headerSubtitle} />
       </div>
 
       {/* Body */}
@@ -1167,6 +1196,9 @@ const ExportCanvas = forwardRef(function ExportCanvas(
       )}
       {type === 'standings' && (
         <StandingsLayout standings={standings} width={w} height={h} />
+      )}
+      {type === 'group_standings' && (
+        <StandingsLayout standings={standings} width={w} height={h} advanceAccent />
       )}
       {type === 'stats_overview' && (
         <StatsOverviewLayout stats={stats} width={w} height={h} />

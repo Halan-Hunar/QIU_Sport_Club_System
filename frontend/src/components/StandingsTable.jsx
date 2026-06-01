@@ -18,11 +18,15 @@ export default function StandingsTable({ standings }) {
 
   return (
     <div className="space-y-6">
-      {[...groups.entries()].map(([groupKey, rows]) => (
+      {[...groups.entries()].map(([groupKey, rows]) => {
+        const isGroupStage = groupKey !== '__default';
+        // Only show ADV indicators once the stage is underway.
+        const stageStarted = rows.some((r) => (r.played ?? 0) > 0);
+        return (
         <div key={groupKey}
              className="bg-white rounded-md border border-outline-variant/30 shadow-card
                         overflow-hidden">
-          {groupKey !== '__default' && (
+          {isGroupStage && (
             <div className="px-4 py-3 border-b border-outline-variant/30
                             bg-surface-low">
               <span className="font-label text-label-md uppercase tracking-wider text-ink">
@@ -47,7 +51,9 @@ export default function StandingsTable({ standings }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, idx) => (
+                {rows.map((r, idx) => {
+                  const advances = isGroupStage && stageStarted && idx < 2;
+                  return (
                   <tr key={r.team_id}
                       className="border-b border-outline-variant/20 last:border-0 hover:bg-surface-low/50">
                     <td className="px-4 py-3 text-ink-variant tabular-nums">{idx + 1}</td>
@@ -58,6 +64,14 @@ export default function StandingsTable({ standings }) {
                           style={{ background: r.primary_color }}
                         />
                         <span className="font-medium text-ink">{r.team_name}</span>
+                        {advances && (
+                          <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-sm
+                                           bg-tertiary-container/40 text-tertiary-on-container
+                                           font-label text-[10px] uppercase tracking-wider"
+                                title="Advances to knockout stage">
+                            ADV
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums text-ink-variant">{r.played}</td>
@@ -73,12 +87,14 @@ export default function StandingsTable({ standings }) {
                       {r.points}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
