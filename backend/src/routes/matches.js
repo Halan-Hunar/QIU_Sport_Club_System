@@ -201,10 +201,15 @@ async function generateGroupStage(tournamentId, registrations) {
   const preassigned = registrations.filter((r) => r.group_name);
   let groups;
   if (preassigned.length === registrations.length) {
+    // Normalize to the single-letter key form ("A", "B" …) so legacy rows that
+    // stored "Group A" don't end up double-prefixed as "Group Group A" when we
+    // build the round label below.
+    const normalize = (g) => (g || '').replace(/^Group\s+/i, '');
     const byName = new Map();
     for (const r of registrations) {
-      if (!byName.has(r.group_name)) byName.set(r.group_name, []);
-      byName.get(r.group_name).push(r);
+      const key = normalize(r.group_name);
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key).push(r);
     }
     groups = [...byName.entries()]
       .sort(([a], [b]) => a.localeCompare(b))

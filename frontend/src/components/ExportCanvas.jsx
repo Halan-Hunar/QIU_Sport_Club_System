@@ -95,7 +95,7 @@ function Header({ tournament, title, subtitle, pillText, pillBg }) {
       <div style={{
         fontFamily: FONT_DISPLAY,
         fontWeight: 700,
-        fontSize: 54,
+        fontSize: 64,
         color: COLORS.onDark,
         letterSpacing: '-0.02em',
         lineHeight: 1.05,
@@ -118,15 +118,15 @@ function Header({ tournament, title, subtitle, pillText, pillBg }) {
       )}
       <div style={{
         display: 'inline-block',
-        marginTop: 14,
-        padding: '8px 16px',
+        marginTop: 16,
+        padding: '12px 24px',
         borderRadius: 999,
         background: resolvedBg,
         border: '1px solid rgba(255,255,255,0.35)',
         color: COLORS.onDark,
         fontFamily: FONT_LABEL,
-        fontSize: 14,
-        fontWeight: 600,
+        fontSize: 24,
+        fontWeight: 700,
         textTransform: 'capitalize',
         letterSpacing: '0.05em',
         backdropFilter: 'blur(2px)',
@@ -145,24 +145,44 @@ function Footer() {
         left: 40,
         bottom: 32,
         fontFamily: FONT_LABEL,
-        fontSize: 14,
-        color: COLORS.onDarkSoft,
+        fontSize: 32,
+        fontWeight: 700,
+        color: COLORS.onDark,
         letterSpacing: '0.02em',
+        lineHeight: 1,
       }}>
         {formatExportDate()}
       </div>
       <div style={{
         position: 'absolute',
         right: 40,
-        bottom: 32,
-        fontFamily: FONT_LABEL,
-        fontSize: 14,
-        fontWeight: 600,
-        color: COLORS.onDark,
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
+        bottom: 24,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
       }}>
-        QIU Sport Club
+        <img
+          src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+          alt=""
+          style={{
+            height: '90px',
+            width: 'auto',
+            objectFit: 'contain',
+            // The logo has dark navy text on a transparent backdrop, which
+            // disappears on the dark gradient canvas — knock it to pure white
+            // so it reads cleanly against any export background.
+            filter: 'brightness(0) invert(1)',
+          }}
+        />
+        <span style={{
+          fontFamily: FONT_LABEL,
+          fontSize: 16,
+          fontWeight: 700,
+          color: COLORS.onDark,
+          letterSpacing: '0.06em',
+        }}>
+          Sport Club
+        </span>
       </div>
     </>
   );
@@ -660,6 +680,13 @@ function StandingsLayout({ standings, width, height, advanceAccent }) {
       bottom: 80,
       overflow: 'hidden',
       fontFamily: FONT_LABEL,
+      // Group standings tables are short — center them in the body area so
+      // there's no awkward gap of empty canvas under the table.
+      ...(advanceAccent ? {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+      } : null),
     }}>
       <div style={{
         background: COLORS.card,
@@ -1338,6 +1365,7 @@ const ExportCanvas = forwardRef(function ExportCanvas(
 ) {
   const { w, h } = getDims(aspectRatio);
   const isSquad = type === 'squad';
+  const isFootball = tournament?.sport_type === 'football';
   const headerSubtitle = type === 'group_standings' && groupName
     ? `Group ${groupName}`
     : null;
@@ -1379,11 +1407,31 @@ const ExportCanvas = forwardRef(function ExportCanvas(
         filter: 'blur(60px)',
       }} />
 
+      {/* Football tournaments get a subtle pitch backdrop layered over the
+          gradient. objectFit:cover handles 9:16 / 3:4 / 1:1 crops without
+          stretching the image. */}
+      {isFootball && (
+        <img
+          src="/export-assets/background/football-background.jpeg"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center bottom',
+            opacity: 0.18,
+            pointerEvents: 'none',
+          }}
+          alt=""
+        />
+      )}
+
       {/* Header — SquadLayout draws its own, so skip the shared Header for it */}
       {!isSquad && (
         <div style={{
           position: 'absolute',
-          top: 40,
+          top: 150,
           left: 40,
           right: 40,
         }}>

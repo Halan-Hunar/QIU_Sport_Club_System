@@ -147,12 +147,14 @@ export default function TeamDetail() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <button onClick={() => setExportOpen(true)}
-                    className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
-                               hover:!bg-white/25">
-              <Share2 size={16} strokeWidth={2.25} />
-              Export Squad
-            </button>
+            {user && (
+              <button onClick={() => setExportOpen(true)}
+                      className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
+                                 hover:!bg-white/25">
+                <Share2 size={16} strokeWidth={2.25} />
+                Export Squad
+              </button>
+            )}
             {isAdmin && (
               <button onClick={() => setEditTeamOpen(true)}
                       className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white

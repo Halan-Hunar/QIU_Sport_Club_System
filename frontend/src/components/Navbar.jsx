@@ -2,13 +2,30 @@ import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
-const links = [
+const PUBLIC_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/tournaments', label: 'Tournaments' },
-  { to: '/teams', label: 'Teams' },
-  { to: '/players', label: 'Players' },
   { to: '/stats', label: 'Stats' },
 ];
+
+// Visible only once the user is logged in (any role) — these routes require
+// auth, so showing the link to a logged-out visitor would just bounce them.
+const AUTH_ONLY_LINKS = [
+  { to: '/teams', label: 'Teams' },
+  { to: '/players', label: 'Players' },
+];
+
+function getVisibleLinks(isLoggedIn) {
+  if (!isLoggedIn) return PUBLIC_LINKS;
+  // Keep the same nav order: Home, Tournaments, Teams, Players, Stats.
+  return [
+    PUBLIC_LINKS[0],
+    PUBLIC_LINKS[1],
+    AUTH_ONLY_LINKS[0],
+    AUTH_ONLY_LINKS[1],
+    PUBLIC_LINKS[2],
+  ];
+}
 
 function NavItem({ to, label, end }) {
   return (
@@ -37,6 +54,8 @@ export default function Navbar() {
   const { user, token, logout } = useAuthStore();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const isLoggedIn = !!(token && user);
+  const links = getVisibleLinks(isLoggedIn);
 
   const handleLogout = async () => {
     await logout();
@@ -48,11 +67,16 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-outline-variant/40">
       <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-9 h-9 rounded-md bg-hero-blue flex items-center justify-center
-                          shadow-card group-hover:shadow-card-hover transition-shadow">
-            <span className="font-display text-white text-base leading-none tracking-wide">S</span>
-          </div>
+        <Link
+          to="/"
+          className="group"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <img
+            src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+            alt=""
+            style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
+          />
           <span className="font-display text-xl text-primary tracking-wide hidden sm:inline">
             Sport Club
           </span>

@@ -6,9 +6,18 @@ export default function Footer() {
       <div className="max-w-[1280px] mx-auto px-6 py-8
                       flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <p className="font-display text-lg text-primary tracking-wide">Sport Club</p>
-          <p className="text-sm text-ink-variant mt-0.5">
-            © {new Date().getFullYear()} Sport Club. All rights reserved.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img
+              src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+              alt=""
+              style={{ height: '40px', width: 'auto', objectFit: 'contain' }}
+            />
+            <span className="font-display text-lg text-primary tracking-wide">
+              Sport Club
+            </span>
+          </div>
+          <p className="text-sm text-ink-variant mt-1">
+            © {new Date().getFullYear()} All rights reserved.
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-variant">

@@ -26,10 +26,11 @@ export default function Login() {
         <div className="bg-white rounded-md shadow-card border border-outline-variant/30 p-8 sm:p-10">
           {/* Logo crest */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-16 h-16 rounded-md bg-hero-blue flex items-center justify-center
-                            shadow-card mb-3">
-              <span className="font-display text-white text-2xl tracking-wide">SC</span>
-            </div>
+            <img
+              src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+              alt="Sport Club"
+              style={{ height: '64px', width: 'auto', marginBottom: '12px' }}
+            />
             <h1 className="font-display text-headline-lg text-ink">Admin Portal</h1>
             <p className="text-sm text-ink-variant mt-1">Sign in to manage your sport club</p>
           </div>

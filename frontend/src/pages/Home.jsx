@@ -138,9 +138,22 @@ export default function Home() {
           {isLoadingHero ? (
             <div className="h-12 w-2/3 bg-white/20 rounded animate-pulse mt-4" />
           ) : (
-            <h1 className="font-display text-headline-lg sm:text-display-lg mt-4 leading-tight">
-              {featured?.name ?? 'Sport Club Hub'}
-            </h1>
+            {featured ? (
+              <h1 className="font-display text-headline-lg sm:text-display-lg mt-4 leading-tight">
+                {featured.name}
+              </h1>
+            ) : (
+              <div className="mt-4 flex items-center gap-3">
+                <img
+                  src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+                  alt="Sport Club"
+                  style={{ height: '56px', width: 'auto' }}
+                />
+                <span className="font-display text-headline-lg sm:text-display-lg leading-tight">
+                  Hub
+                </span>
+              </div>
+            )}
           )}
 
           <p className="text-white/80 mt-3 max-w-2xl">

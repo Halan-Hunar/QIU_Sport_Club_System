@@ -43,11 +43,23 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
 
-        <Route path="/teams" element={<Teams />} />
+        <Route path="/teams" element={
+          <ProtectedRoute>
+            <Teams />
+          </ProtectedRoute>
+        } />
         <Route path="/teams/new" element={<Navigate to="/teams?new=1" replace />} />
-        <Route path="/teams/:id" element={<TeamDetail />} />
+        <Route path="/teams/:id" element={
+          <ProtectedRoute>
+            <TeamDetail />
+          </ProtectedRoute>
+        } />
 
-        <Route path="/players" element={<Players />} />
+        <Route path="/players" element={
+          <ProtectedRoute>
+            <Players />
+          </ProtectedRoute>
+        } />
 
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:id" element={<TournamentDetail />} />

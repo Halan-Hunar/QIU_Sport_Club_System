@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { useTournamentStore } from '../store/tournamentStore';
+import { useMatchStore } from '../store/matchStore';
 
 const GROUP_COUNT_OPTIONS = [2, 3, 4];
 
@@ -9,13 +10,20 @@ function groupLetter(idx) {
   return String.fromCharCode(65 + idx); // 0 → 'A'
 }
 
+// Normalize legacy values like "Group A" stored in group_name down to just "A"
+// so the modal hydrates correctly even after the rename to single-letter keys.
+function normalizeGroupKey(name) {
+  return (name || '').replace(/^Group\s+/i, '');
+}
+
 // Build the working state from current registrations. `teams` is the array
 // from the tournament fetch — each entry has shape { team, group_name, … }.
-function buildInitialAssignments(teams, groupNames) {
-  const next = Object.fromEntries(groupNames.map((g) => [g, []]));
+function buildInitialAssignments(teams, groupKeys) {
+  const next = Object.fromEntries(groupKeys.map((g) => [g, []]));
   for (const r of teams) {
-    if (r.group_name && next[r.group_name]) {
-      next[r.group_name].push(r.team.id);
+    const key = normalizeGroupKey(r.group_name);
+    if (key && next[key]) {
+      next[key].push(r.team.id);
     }
   }
   return next;
@@ -23,15 +31,22 @@ function buildInitialAssignments(teams, groupNames) {
 
 export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
   const { assignGroups, saving, error, clearError } = useTournamentStore();
+  const generateBracket = useMatchStore((s) => s.generateBracket);
+  const matchSaving = useMatchStore((s) => s.saving);
+  const matchError = useMatchStore((s) => s.error);
+  const [generating, setGenerating] = useState(false);
 
   // How many groups the admin wants for the draw.
   const [groupCount, setGroupCount] = useState(2);
-  const groupNames = useMemo(
-    () => Array.from({ length: groupCount }, (_, i) => `Group ${groupLetter(i)}`),
+  // Single-letter keys that match the storage format ("A", "B", ...).
+  const groupKeys = useMemo(
+    () => Array.from({ length: groupCount }, (_, i) => groupLetter(i)),
     [groupCount],
   );
+  // Display label helper — "Group A".
+  const groupLabel = (key) => `Group ${key}`;
 
-  // assignments: { "Group A": [team_id, …], … }
+  // assignments: { "A": [team_id, …], … }
   const [assignments, setAssignments] = useState({});
   const [savedMsg, setSavedMsg] = useState(false);
 
@@ -41,18 +56,21 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
     if (!open) return;
     clearError();
     setSavedMsg(false);
+    setGenerating(false);
 
     const existing = new Set(
-      (teams || []).map((r) => r.group_name).filter(Boolean),
+      (teams || [])
+        .map((r) => normalizeGroupKey(r.group_name))
+        .filter(Boolean),
     );
     let initialCount = 2;
     if (existing.size > 2) {
       // Pick the smallest option that covers existing groups.
       initialCount = GROUP_COUNT_OPTIONS.find((n) => n >= existing.size) ?? 4;
     }
-    const names = Array.from({ length: initialCount }, (_, i) => `Group ${groupLetter(i)}`);
+    const keys = Array.from({ length: initialCount }, (_, i) => groupLetter(i));
     setGroupCount(initialCount);
-    setAssignments(buildInitialAssignments(teams || [], names));
+    setAssignments(buildInitialAssignments(teams || [], keys));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, teams]);
 
@@ -60,24 +78,26 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
   // that still fit, drop the ones whose group disappeared.
   useEffect(() => {
     setAssignments((prev) => {
-      const next = Object.fromEntries(groupNames.map((g) => [g, []]));
-      for (const g of groupNames) {
+      const next = Object.fromEntries(groupKeys.map((g) => [g, []]));
+      for (const g of groupKeys) {
         if (prev[g]) next[g] = [...prev[g]];
       }
       return next;
     });
-  }, [groupNames]);
+  }, [groupKeys]);
+
+  const busy = saving || generating || matchSaving;
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === 'Escape' && !saving && onClose();
+    const onKey = (e) => e.key === 'Escape' && !busy && onClose();
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [open, onClose, saving]);
+  }, [open, onClose, busy]);
 
   const assignedIds = useMemo(() => {
     const s = new Set();
@@ -94,24 +114,24 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
 
   const allAssigned = unassigned.length === 0 && (teams || []).length > 0;
 
-  const assignTo = (teamId, groupName) => {
+  const assignTo = (teamId, groupKey) => {
     setAssignments((prev) => {
       const next = { ...prev };
       // Remove from any other group first
-      for (const g of groupNames) {
+      for (const g of groupKeys) {
         if (next[g]?.includes(teamId)) {
           next[g] = next[g].filter((id) => id !== teamId);
         }
       }
-      next[groupName] = [...(next[groupName] ?? []), teamId];
+      next[groupKey] = [...(next[groupKey] ?? []), teamId];
       return next;
     });
   };
 
-  const removeFromGroup = (teamId, groupName) => {
+  const removeFromGroup = (teamId, groupKey) => {
     setAssignments((prev) => ({
       ...prev,
-      [groupName]: (prev[groupName] ?? []).filter((id) => id !== teamId),
+      [groupKey]: (prev[groupKey] ?? []).filter((id) => id !== teamId),
     }));
   };
 
@@ -122,16 +142,22 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
   }, [teams]);
 
   const handleConfirm = async () => {
-    if (!allAssigned || saving) return;
+    if (!allAssigned || busy) return;
     const ok = await assignGroups(tournamentId, assignments);
-    if (ok) {
-      setSavedMsg(true);
-      // Brief confirmation then close.
-      setTimeout(() => {
-        setSavedMsg(false);
-        onClose();
-      }, 900);
-    }
+    if (!ok) return;
+    // Auto-generate the bracket immediately after a successful draw — the
+    // admin shouldn't have to press a separate button to materialise the
+    // group-stage fixtures.
+    setGenerating(true);
+    const generated = await generateBracket(tournamentId);
+    setGenerating(false);
+    if (!generated) return;
+    setSavedMsg(true);
+    // Brief confirmation then close.
+    setTimeout(() => {
+      setSavedMsg(false);
+      onClose();
+    }, 900);
   };
 
   return (
@@ -143,7 +169,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={() => !saving && onClose()}
+          onClick={() => !busy && onClose()}
         >
           <motion.div
             className="w-full max-w-5xl bg-white rounded-md shadow-card-hover
@@ -167,8 +193,8 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                 </p>
               </div>
               <button
-                onClick={() => !saving && onClose()}
-                disabled={saving}
+                onClick={() => !busy && onClose()}
+                disabled={busy}
                 className="w-8 h-8 rounded-full text-ink-variant hover:bg-surface-low
                            hover:text-primary flex items-center justify-center
                            transition-colors disabled:opacity-40"
@@ -236,7 +262,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                         </span>
                         <span className="flex-1 truncate text-ink">{r.team.name}</span>
                         <div className="flex flex-wrap gap-1">
-                          {groupNames.map((g) => (
+                          {groupKeys.map((g) => (
                             <button
                               key={g}
                               type="button"
@@ -246,7 +272,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                                          text-primary border border-primary-container
                                          hover:bg-primary-container/20 transition-colors"
                             >
-                              → {g.replace('Group ', '')}
+                              → {g}
                             </button>
                           ))}
                         </div>
@@ -264,7 +290,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                     gridTemplateColumns: `repeat(${Math.min(groupCount, 4)}, minmax(0, 1fr))`,
                   }}
                 >
-                  {groupNames.map((g) => {
+                  {groupKeys.map((g) => {
                     const ids = assignments[g] ?? [];
                     return (
                       <div key={g}
@@ -272,7 +298,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                                       p-3 flex flex-col gap-2 min-h-[120px]">
                         <div className="flex items-center justify-between">
                           <span className="font-display text-headline-md text-ink">
-                            {g}
+                            {groupLabel(g)}
                           </span>
                           <span className="text-xs font-label uppercase tracking-wider text-ink-variant">
                             {ids.length} team{ids.length === 1 ? '' : 's'}
@@ -310,7 +336,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                                     className="w-6 h-6 rounded-full text-ink-variant
                                                hover:text-danger hover:bg-danger-container
                                                flex items-center justify-center transition-colors"
-                                    aria-label={`Remove ${team.name} from ${g}`}
+                                    aria-label={`Remove ${team.name} from ${groupLabel(g)}`}
                                   >
                                     <X size={12} strokeWidth={2.5} />
                                   </button>
@@ -325,10 +351,10 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                 </div>
               </section>
 
-              {error && (
+              {(error || matchError) && (
                 <div className="bg-danger-container text-danger-on-container
                                 rounded-sm px-3 py-2 text-sm">
-                  {error}
+                  {error || matchError}
                 </div>
               )}
             </div>
@@ -338,7 +364,7 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                             px-6 py-4 border-t border-outline-variant/30 bg-white">
               <p className="text-xs text-ink-variant">
                 {allAssigned
-                  ? 'All teams are placed. Confirm the draw to save.'
+                  ? 'All teams are placed. Confirm the draw to save & generate fixtures.'
                   : `Assign all ${(teams || []).length} teams to a group to enable Confirm.`}
               </p>
               <div className="flex items-center gap-2">
@@ -346,13 +372,13 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                   <span className="inline-flex items-center gap-1 text-sm font-label
                                    uppercase tracking-wider text-primary">
                     <Check size={14} strokeWidth={2.5} />
-                    Saved
+                    Fixtures generated
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={onClose}
-                  disabled={saving}
+                  disabled={busy}
                   className="sc-btn-secondary !py-2 !px-4"
                 >
                   Cancel
@@ -360,13 +386,18 @@ export default function GroupDrawModal({ open, onClose, tournamentId, teams }) {
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={!allAssigned || saving}
+                  disabled={!allAssigned || busy}
                   className="sc-btn-primary !py-2 !px-4"
                 >
                   {saving ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      Saving…
+                      Saving draw…
+                    </>
+                  ) : generating ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Generating fixtures…
                     </>
                   ) : (
                     'Confirm Draw'
