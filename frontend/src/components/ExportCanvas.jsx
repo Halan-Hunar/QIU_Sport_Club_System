@@ -587,28 +587,43 @@ function ResultsLayout({ matches, width, height }) {
                     </span>
                   </div>
 
-                  {/* Score */}
-                  <div style={{
-                    fontFamily: FONT_DISPLAY,
-                    fontSize: scoreSize,
-                    fontWeight: 700,
-                    color: COLORS.text,
-                    fontVariantNumeric: 'tabular-nums',
-                    padding: `0 ${sz(18)}px`,
-                    minWidth: sz(160),
-                    textAlign: 'center',
-                    lineHeight: 1,
-                  }}>
-                    <span style={{ color: homeWin ? COLORS.accent : COLORS.text }}>
-                      {m.home_score ?? 0}
+                  {/* Score (or VS placeholder for fixtures that haven't kicked off yet) */}
+                  {m.status === 'scheduled' ? (
+                    <span style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontSize: scoreSize,
+                      fontWeight: 700,
+                      color: COLORS.textSecondary,
+                      padding: `0 ${sz(18)}px`,
+                      minWidth: sz(160),
+                      textAlign: 'center',
+                      lineHeight: 1,
+                    }}>
+                      VS
                     </span>
-                    <span style={{ color: COLORS.textSecondary, padding: `0 ${sz(8)}px`, fontWeight: 500 }}>
-                      :
-                    </span>
-                    <span style={{ color: awayWin ? COLORS.accent : COLORS.text }}>
-                      {m.away_score ?? 0}
-                    </span>
-                  </div>
+                  ) : (
+                    <div style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontSize: scoreSize,
+                      fontWeight: 700,
+                      color: COLORS.text,
+                      fontVariantNumeric: 'tabular-nums',
+                      padding: `0 ${sz(18)}px`,
+                      minWidth: sz(160),
+                      textAlign: 'center',
+                      lineHeight: 1,
+                    }}>
+                      <span style={{ color: homeWin ? COLORS.accent : COLORS.text }}>
+                        {m.home_score ?? 0}
+                      </span>
+                      <span style={{ color: COLORS.textSecondary, padding: `0 ${sz(8)}px`, fontWeight: 500 }}>
+                        :
+                      </span>
+                      <span style={{ color: awayWin ? COLORS.accent : COLORS.text }}>
+                        {m.away_score ?? 0}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Away */}
                   <div style={{
