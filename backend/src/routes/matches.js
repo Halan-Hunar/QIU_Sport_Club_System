@@ -290,7 +290,8 @@ router.get('/', async (req, res) => {
       home_team:teams!matches_home_team_id_fkey(id, name, primary_color, secondary_color),
       away_team:teams!matches_away_team_id_fkey(id, name, primary_color, secondary_color),
       home_player:players!matches_home_player_id_fkey(id, name, jersey_number),
-      away_player:players!matches_away_player_id_fkey(id, name, jersey_number)
+      away_player:players!matches_away_player_id_fkey(id, name, jersey_number),
+      events:match_events(event_type, team_id, player:players(name))
     `)
     .eq('tournament_id', tournamentId)
     .order('match_number', { ascending: true });

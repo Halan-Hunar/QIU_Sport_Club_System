@@ -446,6 +446,22 @@ function BracketLayout({ matches, rounds, width, height }) {
   );
 }
 
+// Collapse a match's goal events down to a per-team list of unique scorers
+// with counts: [{ name: 'Halan', count: 2 }, …]. The export API returns
+// events as `{ event_type, team_id, player: { name } }`.
+function scorersFor(events, teamId) {
+  if (!events || !teamId) return [];
+  const counts = new Map();
+  for (const e of events) {
+    if (e.event_type !== 'goal') continue;
+    if (e.team_id !== teamId) continue;
+    const name = e.player?.name;
+    if (!name) continue;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([name, count]) => ({ name, count }));
+}
+
 // ─── RESULTS layout ────────────────────────────────────────────────
 function ResultsLayout({ matches, width, height }) {
   const sorted = useMemo(
@@ -574,17 +590,47 @@ function ResultsLayout({ matches, width, height }) {
                         {home.initial}
                       </div>
                     )}
-                    <span style={{
-                      fontSize: home?.name && home.name.length > 14
-                        ? Math.max(sz(13), nameSize - sz(home.name.length - 14))
-                        : nameSize,
-                      fontWeight: homeWin ? 700 : 500,
-                      color: homeWin ? COLORS.text : COLORS.textVariant,
-                      lineHeight: 1.15,
-                      wordBreak: 'break-word',
+                    <div style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
                     }}>
-                      {home?.name || 'TBD'}
-                    </span>
+                      <span style={{
+                        fontSize: home?.name && home.name.length > 14
+                          ? Math.max(sz(13), nameSize - sz(home.name.length - 14))
+                          : nameSize,
+                        fontWeight: homeWin ? 700 : 500,
+                        color: homeWin ? COLORS.text : COLORS.textVariant,
+                        lineHeight: 1.15,
+                        wordBreak: 'break-word',
+                      }}>
+                        {home?.name || 'TBD'}
+                      </span>
+                      {m.status !== 'scheduled' && (() => {
+                        const scorers = scorersFor(m.events, m.home_team_id);
+                        if (scorers.length === 0) return null;
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                            marginTop: 4,
+                            fontFamily: FONT_LABEL,
+                            fontSize: sz(14),
+                            color: COLORS.textSecondary,
+                            lineHeight: 1.2,
+                          }}>
+                            {scorers.map((s) => (
+                              <span key={s.name}>
+                                ⚽ {s.name}{s.count > 1 ? ` (${s.count})` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   {/* Score (or VS placeholder for fixtures that haven't kicked off yet) */}
@@ -634,18 +680,50 @@ function ResultsLayout({ matches, width, height }) {
                     gap: sz(14),
                     minWidth: 0,
                   }}>
-                    <span style={{
-                      fontSize: away?.name && away.name.length > 14
-                        ? Math.max(sz(13), nameSize - sz(away.name.length - 14))
-                        : nameSize,
-                      fontWeight: awayWin ? 700 : 500,
-                      color: awayWin ? COLORS.text : COLORS.textVariant,
-                      lineHeight: 1.15,
-                      wordBreak: 'break-word',
-                      textAlign: 'right',
+                    <div style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                      alignItems: 'flex-end',
                     }}>
-                      {away?.name || 'TBD'}
-                    </span>
+                      <span style={{
+                        fontSize: away?.name && away.name.length > 14
+                          ? Math.max(sz(13), nameSize - sz(away.name.length - 14))
+                          : nameSize,
+                        fontWeight: awayWin ? 700 : 500,
+                        color: awayWin ? COLORS.text : COLORS.textVariant,
+                        lineHeight: 1.15,
+                        wordBreak: 'break-word',
+                        textAlign: 'right',
+                      }}>
+                        {away?.name || 'TBD'}
+                      </span>
+                      {m.status !== 'scheduled' && (() => {
+                        const scorers = scorersFor(m.events, m.away_team_id);
+                        if (scorers.length === 0) return null;
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                            marginTop: 4,
+                            fontFamily: FONT_LABEL,
+                            fontSize: sz(14),
+                            color: COLORS.textSecondary,
+                            lineHeight: 1.2,
+                            textAlign: 'right',
+                          }}>
+                            {scorers.map((s) => (
+                              <span key={s.name}>
+                                {s.name}{s.count > 1 ? ` (${s.count})` : ''} ⚽
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
                     {away && (
                       <div style={{
                         width: avatarSize,
