@@ -272,14 +272,16 @@ async function generateGroupStage(tournamentId, registrations) {
   return { ok: true, groupCount: groups.length };
 }
 
-// ─── GET /api/matches?tournament_id=… ─────────────────────────
+// ─── GET /api/matches?tournament_id=…&status=…&limit=… ────────
+// tournament_id is required UNLESS `status` is provided — the Home page calls
+// this without a tournament to get the latest results across the whole system.
 router.get('/', async (req, res) => {
-  const tournamentId = req.query.tournament_id;
-  if (!tournamentId) {
-    return res.status(400).json({ error: 'tournament_id query param is required' });
+  const { tournament_id, status, limit } = req.query;
+  if (!tournament_id && !status) {
+    return res.status(400).json({ error: 'tournament_id or status is required' });
   }
 
-  const { data, error } = await supabase
+  let q = supabase
     .from('matches')
     .select(`
       id, tournament_id, round, match_number,
@@ -292,9 +294,25 @@ router.get('/', async (req, res) => {
       home_player:players!matches_home_player_id_fkey(id, name, jersey_number),
       away_player:players!matches_away_player_id_fkey(id, name, jersey_number),
       events:match_events(event_type, team_id, player:players(name))
-    `)
-    .eq('tournament_id', tournamentId)
-    .order('match_number', { ascending: true });
+    `);
+
+  if (tournament_id) q = q.eq('tournament_id', tournament_id);
+  if (status) q = q.eq('status', status);
+
+  // When the caller asks for completed matches, return them newest-first by
+  // ended_at so "latest results" feels right. Otherwise keep the bracket order.
+  if (status === 'completed') {
+    q = q.order('ended_at', { ascending: false, nullsFirst: false });
+  } else {
+    q = q.order('match_number', { ascending: true });
+  }
+
+  if (limit) {
+    const n = Number.parseInt(limit, 10);
+    if (Number.isFinite(n) && n > 0) q = q.limit(Math.min(n, 50));
+  }
+
+  const { data, error } = await q;
 
   if (error) {
     logger.error(`List matches failed: ${error.message}`);

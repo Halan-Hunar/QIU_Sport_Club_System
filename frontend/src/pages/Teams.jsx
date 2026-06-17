@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Users, LayoutGrid, Activity, UserSquare2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useTeamStore } from '../store/teamStore';
 import CreateTeamModal from '../components/CreateTeamModal';
@@ -24,6 +25,7 @@ function CardSkeleton() {
 export default function Teams() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  const isAuthenticated = !!user;
   const { teams, loading, error, fetchTeams, deleteTeam } = useTeamStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,13 +63,13 @@ export default function Teams() {
 
   return (
     <motion.div
-      className="max-w-[1280px] mx-auto px-6 py-8 sm:py-12"
+      className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-12"
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
       {/* Page header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="font-display text-headline-lg sm:text-display-lg text-ink leading-tight">
             University Teams
@@ -91,7 +93,7 @@ export default function Teams() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search teams..."
-              className="sc-input pl-10 !py-2.5 min-w-[240px]"
+              className="sc-input pl-10 !py-2.5 w-full sm:min-w-[240px]"
             />
           </div>
           {isAdmin && (
@@ -106,24 +108,34 @@ export default function Teams() {
         </div>
       </div>
 
-      {/* Stat strip */}
+      {/* Stat strip — icon + label above, big tabular number below.
+          Visitors don't see Total Players. */}
       {!loading && teams.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 sm:mb-8">
           {[
-            { label: 'Total Teams', value: teams.length },
+            { label: 'Total Teams', Icon: Users, value: teams.length, show: true },
             {
               label: 'Total Players',
+              Icon: UserSquare2,
               value: teams.reduce((s, t) => s + (t.player_count || 0), 0),
+              show: isAuthenticated,
             },
-            { label: 'Disciplines', value: 'All' },
-            { label: 'Status', value: 'Active' },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-md border border-outline-variant/30
-                                          shadow-card px-4 py-3">
-              <p className="font-label text-label-md uppercase tracking-wider text-ink-variant">
-                {s.label}
-              </p>
-              <p className="font-display text-stats text-primary mt-1">{s.value}</p>
+            { label: 'Disciplines', Icon: LayoutGrid, value: 'All', show: true },
+            { label: 'Status', Icon: Activity, value: 'Active', show: true },
+          ].filter((s) => s.show).map((s) => (
+            <div key={s.label}
+                 className="bg-white border border-outline-variant/30 shadow-card
+                            rounded-md px-4 py-3 flex flex-col items-start min-w-0">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <s.Icon size={12} strokeWidth={2} className="text-ink-variant" aria-hidden />
+                <span className="font-label text-label-md uppercase tracking-wider text-ink-variant">
+                  {s.label}
+                </span>
+              </div>
+              <span className="font-display text-2xl sm:text-3xl text-primary
+                               leading-none tabular-nums truncate max-w-full">
+                {s.value}
+              </span>
             </div>
           ))}
         </div>
@@ -136,7 +148,7 @@ export default function Teams() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
@@ -160,12 +172,13 @@ export default function Teams() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filtered.map((team) => (
             <TeamCard
               key={team.id}
               team={team}
               isAdmin={isAdmin}
+              isAuthenticated={isAuthenticated}
               onEdit={() => { setEditing(team); setModalOpen(true); }}
               onDelete={() => handleDelete(team)}
             />

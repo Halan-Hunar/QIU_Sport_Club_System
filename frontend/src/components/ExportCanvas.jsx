@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from 'react';
-import { Trophy, Target, ShieldCheck, Star, Shield } from 'lucide-react';
+import { Trophy, Target, ShieldCheck, Star, Shield, TrendingUp } from 'lucide-react';
 
 // "Vibrant Sky" palette — pulled directly from tailwind.config.js so
 // exports feel like an extension of the website rather than a separate brand.
@@ -1095,13 +1095,14 @@ function SingleLeaderboardLayout({ stats, kind, width, height }) {
   if (kind === 'top_scorers') {
     title = 'Top Scorers';
     Icon = Target;
-    rows = (stats.top_scorers || []).map((r) => ({ ...r, _key: r.player_id }));
+    // Cap to top 10 so the exported card fits a 9:16 / 3:4 frame cleanly.
+    rows = (stats.top_scorers || []).slice(0, 10).map((r) => ({ ...r, _key: r.player_id }));
     columns = topScorerColumns();
     emptyText = 'No goals logged yet.';
   } else if (kind === 'clean_sheets') {
     title = 'Clean Sheets';
     Icon = ShieldCheck;
-    rows = (stats.clean_sheets || []).map((r) => ({ ...r, _key: r.team_id }));
+    rows = (stats.clean_sheets || []).slice(0, 10).map((r) => ({ ...r, _key: r.team_id }));
     columns = cleanSheetColumns();
     emptyText = 'No clean sheets recorded yet.';
   } else {
@@ -1130,141 +1131,207 @@ function SingleLeaderboardLayout({ stats, kind, width, height }) {
   );
 }
 
-// ─── STATS — overview layout (champion + all applicable leaderboards) ─
+// ─── STATS — overview layout ────────────────────────────────────────
+// Mirrors the on-site summary strip: 4 summary stats (total goals, goals/
+// match, biggest win, clean sheets) + Champion + Best Player. No detailed
+// leaderboards in this view — those have their own export types.
 function StatsOverviewLayout({ stats, width, height }) {
   if (!stats) return null;
   const applicable = stats.applicable || [];
-
+  const summary = stats.summary || {};
   const champion = stats.champion;
-  const topScorer = stats.top_scorers?.[0];
-  const cleanSheet = stats.clean_sheets?.[0];
   const bestPlayer = stats.best_player;
-  const bestGk = stats.best_gk;
 
-  // Build headline cards based on applicable
+  // ── Summary stat tiles ──
+  const biggest = summary.biggest_win;
+  const summaryTiles = [
+    {
+      key: 'goals',
+      Icon: Target,
+      tint: 'rgba(8, 145, 178, 0.12)',
+      iconColor: '#0e7490',
+      value: String(summary.total_goals ?? 0),
+      label: 'Total goals',
+    },
+    {
+      key: 'gpm',
+      Icon: TrendingUp,
+      tint: 'rgba(16, 185, 129, 0.12)',
+      iconColor: '#047857',
+      value: (summary.goals_per_match ?? 0).toFixed(1),
+      label: 'Goals / match',
+    },
+    {
+      key: 'big',
+      Icon: Trophy,
+      tint: 'rgba(139, 92, 246, 0.14)',
+      iconColor: '#6d28d9',
+      value: biggest
+        ? `${Math.max(biggest.home_score, biggest.away_score)}–${Math.min(biggest.home_score, biggest.away_score)}`
+        : '—',
+      label: 'Biggest win',
+      sub: biggest ? `${biggest.home_name} vs ${biggest.away_name}` : null,
+    },
+    {
+      key: 'cs',
+      Icon: ShieldCheck,
+      tint: 'rgba(244, 63, 94, 0.12)',
+      iconColor: '#be123c',
+      value: String(summary.total_clean_sheets ?? 0),
+      label: 'Clean sheets',
+    },
+  ];
+
+  // ── Headline award cards (Champion + Best Player only) ──
   const headlines = [];
   if (applicable.includes('champion')) {
     headlines.push({
       key: 'champion', Icon: Trophy, label: 'Champion',
-      value: champion?.name, sub: champion ? (champion.kind === 'player' ? 'Player' : 'Team') : null,
+      value: champion?.name,
+      sub: champion ? (champion.kind === 'player' ? 'Player' : 'Team') : 'Awaiting Final result',
     });
   }
-  if (bestPlayer) {
+  if (applicable.includes('best_player') || bestPlayer) {
     headlines.push({
       key: 'best_player', Icon: Star, label: 'Best Player',
-      value: bestPlayer.player_name,
-      sub: bestPlayer.goal_count > 0
-        ? `${bestPlayer.goal_count} ${bestPlayer.goal_count === 1 ? 'goal' : 'goals'} · ${bestPlayer.team_name}`
-        : bestPlayer.team_name,
-    });
-  }
-  if (applicable.includes('top_scorer')) {
-    headlines.push({
-      key: 'top_scorer', Icon: Target, label: 'Top Scorer',
-      value: topScorer?.player_name,
-      sub: topScorer ? `${topScorer.goal_count} ${topScorer.goal_count === 1 ? 'goal' : 'goals'}` : null,
-    });
-  }
-  if (bestGk) {
-    headlines.push({
-      key: 'best_gk', Icon: Shield, label: 'Best Goalkeeper',
-      value: bestGk.player_name,
-      sub: `${bestGk.clean_sheet_count} clean sheet${bestGk.clean_sheet_count !== 1 ? 's' : ''} · ${bestGk.team_name}`,
-    });
-  }
-  if (applicable.includes('clean_sheet')) {
-    headlines.push({
-      key: 'clean_sheet', Icon: ShieldCheck, label: 'Clean Sheets',
-      value: cleanSheet?.team_name,
-      sub: cleanSheet ? `${cleanSheet.clean_sheet_count} ${cleanSheet.clean_sheet_count === 1 ? 'match' : 'matches'}` : null,
+      value: bestPlayer?.player_name,
+      sub: bestPlayer?.team_name ?? 'TBD',
     });
   }
 
+  // 360 leaves a clear gap between the bottom of the header pill (~330) and
+  // the first row of cards, matching the on-site spacing.
   return (
     <div style={{
       position: 'absolute',
-      top: 200,
+      top: 360,
       left: 40,
       right: 40,
-      bottom: 80,
+      bottom: 100,
       overflow: 'hidden',
       fontFamily: FONT_LABEL,
     }}>
-      {/* Headline cards — 2 columns */}
+      {/* Champion + Best Player row (top of the export) */}
+      {headlines.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: headlines.length === 1 ? '1fr' : '1fr 1fr',
+          gap: 18,
+          marginBottom: 28,
+        }}>
+          {headlines.map((h) => (
+            <div key={h.key} style={{
+              background: COLORS.card,
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 18,
+              padding: '24px 26px',
+              boxShadow: '0 4px 18px rgba(0, 30, 48, 0.16)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: 999,
+                  background: 'rgba(0,189,254,0.12)',
+                  color: COLORS.accent,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <h.Icon size={24} strokeWidth={2.25} />
+                </div>
+                <span style={{
+                  fontSize: 14, fontWeight: 700,
+                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                  color: COLORS.textSecondary,
+                }}>
+                  {h.label}
+                </span>
+              </div>
+              <div style={{
+                fontFamily: FONT_DISPLAY,
+                fontWeight: 700, fontSize: 32,
+                color: h.value ? COLORS.text : COLORS.textSecondary,
+                fontStyle: h.value ? 'normal' : 'italic',
+                lineHeight: 1.15,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+              }}>
+                {h.value || 'TBD'}
+              </div>
+              {h.sub && (
+                <div style={{ fontSize: 16, color: COLORS.textSecondary }}>
+                  {h.sub}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 2×2 summary tiles */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: 16,
-        marginBottom: 24,
+        gap: 18,
       }}>
-        {headlines.map((h) => (
-          <div key={h.key} style={{
+        {summaryTiles.map((t) => (
+          <div key={t.key} style={{
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
-            borderRadius: 14,
-            padding: 20,
+            borderRadius: 18,
+            padding: '24px 26px',
             boxShadow: '0 4px 18px rgba(0, 30, 48, 0.16)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: 14,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 999,
-                background: 'rgba(0,189,254,0.12)',
-                color: COLORS.accent,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <h.Icon size={22} strokeWidth={2.25} />
-              </div>
-              <span style={{
-                fontSize: 12, fontWeight: 700,
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                color: COLORS.textSecondary,
-              }}>
-                {h.label}
-              </span>
-            </div>
             <div style={{
-              fontFamily: FONT_DISPLAY,
-              fontWeight: 700, fontSize: 26,
-              color: COLORS.text,
-              lineHeight: 1.15,
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
+              width: 52, height: 52, borderRadius: 12,
+              background: t.tint,
+              color: t.iconColor,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {h.value || 'Not yet decided.'}
+              <t.Icon size={26} strokeWidth={2.25} />
             </div>
-            {h.sub && (
-              <div style={{ fontSize: 14, color: COLORS.textSecondary }}>
-                {h.sub}
+            <div>
+              <div style={{
+                fontFamily: FONT_DISPLAY,
+                fontWeight: 700,
+                fontSize: 56,
+                lineHeight: 1,
+                color: COLORS.text,
+                letterSpacing: '-0.02em',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {t.value}
               </div>
-            )}
+              <div style={{
+                marginTop: 10,
+                fontSize: 18,
+                color: COLORS.textSecondary,
+                fontWeight: 500,
+              }}>
+                {t.label}
+              </div>
+              {t.sub && (
+                <div style={{
+                  marginTop: 4,
+                  fontSize: 14,
+                  color: COLORS.textSecondary,
+                  opacity: 0.85,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {t.sub}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
-
-      {/* Compact leaderboards — top 3 each */}
-      {applicable.includes('top_scorer') && (
-        <Leaderboard
-          title="Top Scorers"
-          Icon={Target}
-          rows={(stats.top_scorers || []).slice(0, 3).map((r) => ({ ...r, _key: r.player_id }))}
-          columns={topScorerColumns()}
-          emptyText="No goals logged yet."
-        />
-      )}
-      {applicable.includes('clean_sheet') && (
-        <Leaderboard
-          title="Clean Sheets"
-          Icon={ShieldCheck}
-          rows={(stats.clean_sheets || []).slice(0, 3).map((r) => ({ ...r, _key: r.team_id }))}
-          columns={cleanSheetColumns()}
-          emptyText="No clean sheets recorded yet."
-        />
-      )}
 
       <span style={{ display: 'none' }}>{width}x{height}</span>
     </div>

@@ -41,6 +41,9 @@ const sendValidationError = (res, parsed) =>
   res.status(400).json({ error: parsed.error.errors[0].message });
 
 // ─── GET /api/teams ───────────────────────────────────────────
+// Returns each team with player_count + completed-match W/L counts. The
+// visitor view of the Teams page swaps the team-colour strip for these
+// stats, so they're computed here rather than via an extra round-trip.
 router.get('/', async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('teams')
@@ -52,15 +55,59 @@ router.get('/', async (_req, res) => {
     return res.status(500).json({ error: 'Failed to fetch teams' });
   }
 
-  const teams = data.map((t) => ({
-    id: t.id,
-    name: t.name,
-    logo_url: t.logo_url,
-    primary_color: t.primary_color,
-    secondary_color: t.secondary_color,
-    created_at: t.created_at,
-    player_count: t.players?.length ?? 0,
-  }));
+  const { data: matches, error: mErr } = await supabaseAdmin
+    .from('matches')
+    .select('home_team_id, away_team_id, home_score, away_score, winner_id')
+    .eq('status', 'completed');
+
+  if (mErr) {
+    logger.error(`List teams – matches load failed: ${mErr.message}`);
+    return res.status(500).json({ error: 'Failed to fetch team stats' });
+  }
+
+  const wlByTeam = new Map();      // team_id → { wins, losses, draws }
+  for (const m of matches ?? []) {
+    const ensure = (id) => {
+      if (!id) return null;
+      if (!wlByTeam.has(id)) wlByTeam.set(id, { wins: 0, losses: 0, draws: 0 });
+      return wlByTeam.get(id);
+    };
+    const home = ensure(m.home_team_id);
+    const away = ensure(m.away_team_id);
+    if (!home && !away) continue;
+    if (m.home_score === m.away_score) {
+      if (home) home.draws += 1;
+      if (away) away.draws += 1;
+      continue;
+    }
+    // winner_id wins authoritatively if set; otherwise fall back to scores.
+    const homeWon = m.winner_id
+      ? m.winner_id === m.home_team_id
+      : m.home_score > m.away_score;
+    if (homeWon) {
+      if (home) home.wins   += 1;
+      if (away) away.losses += 1;
+    } else {
+      if (away) away.wins   += 1;
+      if (home) home.losses += 1;
+    }
+  }
+
+  const teams = data.map((t) => {
+    const wl = wlByTeam.get(t.id) ?? { wins: 0, losses: 0, draws: 0 };
+    return {
+      id: t.id,
+      name: t.name,
+      logo_url: t.logo_url,
+      primary_color: t.primary_color,
+      secondary_color: t.secondary_color,
+      created_at: t.created_at,
+      player_count: t.players?.length ?? 0,
+      wins:   wl.wins,
+      losses: wl.losses,
+      draws:  wl.draws,
+    };
+  });
 
   res.json({ teams });
 });

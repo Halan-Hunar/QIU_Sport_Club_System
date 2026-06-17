@@ -417,6 +417,41 @@ router.post('/:id/advance-groups', requireAuth, requireAdmin, async (req, res) =
   res.status(201).json({ matches: inserted ?? [] });
 });
 
+// ─── PATCH /api/tournaments/:id/awards ────────────────────────
+// Admin-only: set the manually-curated Best Player for the tournament. Stored
+// directly on the tournaments row so the public stats endpoint can read it
+// without an extra join. Free-text name (no players.id) is allowed because
+// admins may want to credit a player who was never in our roster.
+const bestPlayerSchema = z.object({
+  best_player_name: z.string().trim().min(1).max(120).nullable(),
+  best_player_team_id: z.string().uuid().nullable().optional(),
+});
+
+router.patch('/:id/awards', requireAuth, requireAdmin, async (req, res) => {
+  const parsed = bestPlayerSchema.safeParse(req.body);
+  if (!parsed.success) return sendValidationError(res, parsed);
+
+  const payload = {
+    best_player_name: parsed.data.best_player_name,
+    best_player_team_id: parsed.data.best_player_team_id ?? null,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('tournaments')
+    .update(payload)
+    .eq('id', req.params.id)
+    .select('id, best_player_name, best_player_team_id')
+    .single();
+
+  if (error || !data) {
+    logger.error(`Update tournament awards failed: ${error?.message ?? 'not found'}`);
+    return res.status(404).json({ error: 'Tournament not found' });
+  }
+
+  logger.info(`Tournament ${data.id} best player set to "${data.best_player_name}" by ${req.user.email}`);
+  res.json({ tournament: data });
+});
+
 // ─── DELETE /api/tournaments/:id/players/:playerId ────────────
 router.delete('/:id/players/:playerId', requireAuth, requireAdmin, async (req, res) => {
   const { error } = await supabaseAdmin

@@ -43,11 +43,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
 
-        <Route path="/teams" element={
-          <ProtectedRoute>
-            <Teams />
-          </ProtectedRoute>
-        } />
+        <Route path="/teams" element={<Teams />} />
         <Route path="/teams/new" element={<Navigate to="/teams?new=1" replace />} />
         <Route path="/teams/:id" element={
           <ProtectedRoute>

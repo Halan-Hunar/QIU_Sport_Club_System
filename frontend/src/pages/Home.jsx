@@ -94,8 +94,45 @@ function TournamentMiniCard({ t }) {
   );
 }
 
+function ResultCard({ match }) {
+  const homeName = match.home_team?.name ?? match.home_player?.name ?? 'TBD';
+  const awayName = match.away_team?.name ?? match.away_player?.name ?? 'TBD';
+  const homeColor = match.home_team?.primary_color ?? '#94a3b8';
+  const awayColor = match.away_team?.primary_color ?? '#cbd5e1';
+  const homeWon = match.winner_id && match.winner_id === match.home_team_id;
+  const awayWon = match.winner_id && match.winner_id === match.away_team_id;
+  return (
+    <Link
+      to={`/tournaments/${match.tournament_id}`}
+      className="sc-card p-5 sm:p-6 flex flex-col h-full hover:shadow-card-hover
+                 transition-all group"
+    >
+      <p className="font-label text-label-md uppercase tracking-wider text-ink-variant mb-4">
+        {match.round}
+      </p>
+      <div className="space-y-3 flex-1">
+        {[{ name: homeName, color: homeColor, score: match.home_score, winner: homeWon },
+          { name: awayName, color: awayColor, score: match.away_score, winner: awayWon }
+        ].map((row, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <span className="w-1.5 h-7 rounded-full flex-shrink-0" style={{ background: row.color }} />
+            <span className={`flex-1 truncate font-display text-base sm:text-lg leading-none
+                              ${row.winner ? 'text-ink font-semibold' : 'text-ink/80'}`}>
+              {row.name}
+            </span>
+            <span className={`font-display text-2xl sm:text-3xl tabular-nums leading-none
+                              ${row.winner ? 'text-primary' : 'text-ink'}`}>
+              {row.score ?? 0}
+            </span>
+          </div>
+        ))}
+      </div>
+    </Link>
+  );
+}
+
 export default function Home() {
-  const { stats, upcoming, loading, error, fetchHomeData } = useHomeStore();
+  const { stats, upcoming, latestResults, loading, error, fetchHomeData } = useHomeStore();
 
   useEffect(() => { fetchHomeData(); }, [fetchHomeData]);
 
@@ -110,11 +147,11 @@ export default function Home() {
   const goalsCount = featured ? featured.goals_scored : (stats?.total_goals ?? 0);
 
   return (
-    <div className="max-w-[1280px] mx-auto px-6 py-8 sm:py-12">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-12">
       {/* Hero */}
       <motion.section
         {...fadeUp}
-        className="relative overflow-hidden rounded-lg bg-hero-deep p-8 sm:p-12
+        className="relative overflow-hidden rounded-lg bg-hero-deep p-6 sm:p-12
                    shadow-card text-white"
       >
         <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full
@@ -232,6 +269,16 @@ export default function Home() {
           </p>
         </motion.div>
       </section>
+
+      {/* Latest Results — aligned in the same 3-up grid as the feature cards */}
+      {latestResults.length > 0 && (
+        <section className="mt-8">
+          <h2 className="font-display text-headline-md text-ink mb-4">Latest Results</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {latestResults.slice(0, 3).map((m) => <ResultCard key={m.id} match={m} />)}
+          </div>
+        </section>
+      )}
 
       {/* Upcoming & Active */}
       <section className="mt-10">

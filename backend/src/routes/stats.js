@@ -201,43 +201,83 @@ router.get('/tournament/:id', async (req, res) => {
     most_wins: [],
     best_player: null,
     best_gk: null,
+    summary: {
+      total_goals: 0,
+      matches_completed: 0,
+      goals_per_match: 0,
+      total_clean_sheets: 0,
+      biggest_win: null,    // { home, away, home_score, away_score, margin }
+    },
   };
 
+  // ── Summary (total goals, biggest win, clean sheet count) ──
+  {
+    const { data: completed } = await supabaseAdmin
+      .from('matches')
+      .select(`
+        home_score, away_score,
+        home_team:teams!matches_home_team_id_fkey(id, name, primary_color),
+        away_team:teams!matches_away_team_id_fkey(id, name, primary_color),
+        home_player:players!matches_home_player_id_fkey(id, name),
+        away_player:players!matches_away_player_id_fkey(id, name)
+      `)
+      .eq('tournament_id', tournamentId)
+      .eq('status', 'completed');
+
+    let totalGoals = 0;
+    let cleanSheets = 0;
+    let biggest = null;
+    for (const m of completed ?? []) {
+      const hs = m.home_score ?? 0;
+      const as = m.away_score ?? 0;
+      totalGoals += hs + as;
+      if (hs === 0 || as === 0) cleanSheets += (hs === 0 ? 1 : 0) + (as === 0 ? 1 : 0);
+      const margin = Math.abs(hs - as);
+      if (!biggest || margin > biggest.margin
+          || (margin === biggest.margin && hs + as > biggest.home_score + biggest.away_score)) {
+        biggest = {
+          home_name: m.home_team?.name ?? m.home_player?.name ?? 'TBD',
+          away_name: m.away_team?.name ?? m.away_player?.name ?? 'TBD',
+          home_color: m.home_team?.primary_color ?? null,
+          away_color: m.away_team?.primary_color ?? null,
+          home_score: hs,
+          away_score: as,
+          margin,
+        };
+      }
+    }
+    const played = completed?.length ?? 0;
+    out.summary.total_goals = totalGoals;
+    out.summary.matches_completed = played;
+    out.summary.goals_per_match = played > 0
+      ? Math.round((totalGoals / played) * 10) / 10
+      : 0;
+    out.summary.total_clean_sheets = cleanSheets;
+    out.summary.biggest_win = biggest && biggest.margin > 0 ? biggest : null;
+  }
+
   // ── Champion ───────────────────────────────────────────────
+  // Strictly derived from a completed match in the 'Final' round. We do not
+  // infer the champion from standings or any other source. If no such match
+  // exists, `out.champion` stays null and the frontend shows TBD / hides the card.
   if (applicable.includes('champion')) {
-    if (tournament.format === 'round_robin') {
-      const { data: standings } = await supabaseAdmin
-        .from('tournament_standings')
-        .select('team_id, team_name, primary_color, points, goal_diff, goals_for')
-        .eq('tournament_id', tournamentId);
-      if (standings?.length && tournament.status === 'completed') {
-        const top = [...standings].sort(
-          (a, b) => b.points - a.points
-            || b.goal_diff - a.goal_diff
-            || b.goals_for - a.goals_for,
-        )[0];
-        if (top) out.champion = { kind: 'team', name: top.team_name, color: top.primary_color };
-      }
-    } else {
-      // Elim formats: the final match has no next_match_id; pick the highest-numbered completed one.
-      const { data: finals } = await supabaseAdmin
-        .from('matches')
-        .select(`
-          match_number, winner_id, winner_player_id,
-          winner_team:teams!matches_winner_id_fkey(id, name, primary_color),
-          winner_player:players!matches_winner_player_id_fkey(id, name, jersey_number)
-        `)
-        .eq('tournament_id', tournamentId)
-        .is('next_match_id', null)
-        .eq('status', 'completed')
-        .order('match_number', { ascending: false })
-        .limit(1);
-      const final = finals?.[0];
-      if (final?.winner_team) {
-        out.champion = { kind: 'team', name: final.winner_team.name, color: final.winner_team.primary_color };
-      } else if (final?.winner_player) {
-        out.champion = { kind: 'player', name: final.winner_player.name, jersey_number: final.winner_player.jersey_number };
-      }
+    const { data: finals } = await supabaseAdmin
+      .from('matches')
+      .select(`
+        match_number, winner_id, winner_player_id,
+        winner_team:teams!matches_winner_id_fkey(id, name, primary_color),
+        winner_player:players!matches_winner_player_id_fkey(id, name, jersey_number)
+      `)
+      .eq('tournament_id', tournamentId)
+      .eq('round', 'Final')
+      .eq('status', 'completed')
+      .order('match_number', { ascending: false })
+      .limit(1);
+    const final = finals?.[0];
+    if (final?.winner_team) {
+      out.champion = { kind: 'team', name: final.winner_team.name, color: final.winner_team.primary_color };
+    } else if (final?.winner_player) {
+      out.champion = { kind: 'player', name: final.winner_player.name, jersey_number: final.winner_player.jersey_number };
     }
   }
 
@@ -367,75 +407,29 @@ router.get('/tournament/:id', async (req, res) => {
     }
   }
 
-  // ── Best Player (top scorer from the winning team) ──────────
-  // Only meaningful for team tournaments — `winner_team_id` is derived the
-  // same way `champion` is: round-robin uses the standings leader, elim
-  // formats use the final's winner. We re-derive the team_id here rather
-  // than mutate the existing champion shape.
+  // ── Best Player (admin-selected, manual override) ──────────
+  // Stored in `tournaments.best_player_name` + `tournaments.best_player_team_id`.
+  // Public visitors see TBD until an admin sets it.
   if (!tournament.is_individual && applicable.includes('top_scorer')) {
-    let winnerTeamId = null;
-    let winnerTeamName = null;
-    let winnerTeamColor = null;
+    applicable.push('best_player');
 
-    if (tournament.format === 'round_robin') {
-      if (tournament.status === 'completed') {
-        const { data: standings } = await supabaseAdmin
-          .from('tournament_standings')
-          .select('team_id, team_name, primary_color, points, goal_diff, goals_for')
-          .eq('tournament_id', tournamentId);
-        if (standings?.length) {
-          const top = [...standings].sort(
-            (a, b) => b.points - a.points
-              || b.goal_diff - a.goal_diff
-              || b.goals_for - a.goals_for,
-          )[0];
-          if (top) {
-            winnerTeamId = top.team_id;
-            winnerTeamName = top.team_name;
-            winnerTeamColor = top.primary_color;
-          }
-        }
-      }
-    } else {
-      const { data: finals } = await supabaseAdmin
-        .from('matches')
-        .select(`
-          winner_id,
-          winner_team:teams!matches_winner_id_fkey(id, name, primary_color)
-        `)
-        .eq('tournament_id', tournamentId)
-        .is('next_match_id', null)
-        .eq('status', 'completed')
-        .order('match_number', { ascending: false })
-        .limit(1);
-      const final = finals?.[0];
-      if (final?.winner_team) {
-        winnerTeamId = final.winner_team.id;
-        winnerTeamName = final.winner_team.name;
-        winnerTeamColor = final.winner_team.primary_color;
-      }
-    }
+    const { data: bp } = await supabaseAdmin
+      .from('tournaments')
+      .select(`
+        best_player_name,
+        best_player_team:teams!tournaments_best_player_team_id_fkey(id, name, primary_color)
+      `)
+      .eq('id', tournamentId)
+      .single();
 
-    if (winnerTeamId) {
-      const topFromWinner = out.top_scorers.find((s) => s.team_id === winnerTeamId);
-      if (topFromWinner) {
-        out.best_player = {
-          player_name: topFromWinner.player_name,
-          player_id: topFromWinner.player_id,
-          team_name: topFromWinner.team_name ?? winnerTeamName,
-          team_color: topFromWinner.team_color ?? winnerTeamColor,
-          goal_count: topFromWinner.goal_count,
-        };
-      } else {
-        out.best_player = {
-          player_name: null,
-          player_id: null,
-          team_name: winnerTeamName,
-          team_color: winnerTeamColor,
-          goal_count: 0,
-        };
-      }
-      applicable.push('best_player');
+    if (bp?.best_player_name) {
+      out.best_player = {
+        player_name: bp.best_player_name,
+        player_id: null,
+        team_name: bp.best_player_team?.name ?? null,
+        team_color: bp.best_player_team?.primary_color ?? null,
+        team_id: bp.best_player_team?.id ?? null,
+      };
     }
   }
 

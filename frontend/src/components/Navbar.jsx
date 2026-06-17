@@ -2,28 +2,29 @@ import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
+// Teams is now public (visitor-readable, non-clickable cards) so it lives in
+// the public list. Players still requires auth.
 const PUBLIC_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/tournaments', label: 'Tournaments' },
+  { to: '/teams', label: 'Teams' },
   { to: '/stats', label: 'Stats' },
 ];
 
-// Visible only once the user is logged in (any role) — these routes require
-// auth, so showing the link to a logged-out visitor would just bounce them.
 const AUTH_ONLY_LINKS = [
-  { to: '/teams', label: 'Teams' },
   { to: '/players', label: 'Players' },
 ];
 
 function getVisibleLinks(isLoggedIn) {
   if (!isLoggedIn) return PUBLIC_LINKS;
-  // Keep the same nav order: Home, Tournaments, Teams, Players, Stats.
+  // Insert Players between Teams and Stats so the nav order stays:
+  // Home, Tournaments, Teams, Players, Stats.
   return [
     PUBLIC_LINKS[0],
     PUBLIC_LINKS[1],
-    AUTH_ONLY_LINKS[0],
-    AUTH_ONLY_LINKS[1],
     PUBLIC_LINKS[2],
+    AUTH_ONLY_LINKS[0],
+    PUBLIC_LINKS[3],
   ];
 }
 

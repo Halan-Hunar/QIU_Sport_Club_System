@@ -294,6 +294,15 @@ alter table public.matches add column if not exists winner_player_id uuid refere
 alter table public.tournaments
   add column if not exists is_individual boolean not null default false;
 
+-- Best Player — manually curated per tournament. Free-text name is stored
+-- directly on the tournament row so admins can credit a player who was never
+-- in our players table. best_player_team_id is the team they played for.
+alter table public.tournaments
+  add column if not exists best_player_name text;
+alter table public.tournaments
+  add column if not exists best_player_team_id uuid
+  references public.teams(id) on delete set null;
+
 create table if not exists public.tournament_players (
   id uuid primary key default uuid_generate_v4(),
   tournament_id uuid not null references public.tournaments(id) on delete cascade,

@@ -32,7 +32,8 @@ export default function Login() {
               style={{ height: '64px', width: 'auto', marginBottom: '12px' }}
             />
             <h1 className="font-display text-headline-lg text-ink">Admin Portal</h1>
-            <p className="text-sm text-ink-variant mt-1">Sign in to manage your sport club</p>
+            <p className="text-sm text-ink-variant mt-1">Only authorised admins are allowed to log in.</p>
+            <p className="text-xs text-ink-variant/80 mt-0.5">Sign in to manage your sport club</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
