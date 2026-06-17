@@ -28,7 +28,7 @@ export default function Login() {
           <div className="flex flex-col items-center text-center mb-6">
             <img
               src="/export-assets/logo/QIU-Sports-Club-Logo.png"
-              alt="Sport Club"
+              alt="QIU Sports Club"
               style={{ height: '64px', width: 'auto', marginBottom: '12px' }}
             />
             <h1 className="font-display text-headline-lg text-ink">Admin Portal</h1>

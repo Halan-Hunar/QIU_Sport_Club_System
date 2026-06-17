@@ -79,7 +79,7 @@ export default function Navbar() {
             style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
           />
           <span className="font-display text-xl text-primary tracking-wide hidden sm:inline">
-            Sport Club
+            QIU Sports Club
           </span>
         </Link>
 

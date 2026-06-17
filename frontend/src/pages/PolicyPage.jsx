@@ -41,7 +41,7 @@ export default function PrivacyPolicy() {
 
       <Section title="1. Introduction">
         <p>
-          Sport Club is a sports tournament management platform that allows visitors to
+          QIU Sports Club is a sports tournament management platform that allows visitors to
           browse tournaments, teams, players, match results, and statistics. This Privacy
           Policy describes what limited information the platform processes, how it is used,
           and the choices available to users. By using the platform, you acknowledge the

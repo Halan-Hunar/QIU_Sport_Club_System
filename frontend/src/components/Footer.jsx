@@ -13,7 +13,7 @@ export default function Footer() {
               style={{ height: '40px', width: 'auto', objectFit: 'contain' }}
             />
             <span className="font-display text-lg text-primary tracking-wide">
-              Sport Club
+              QIU Sports Club
             </span>
           </div>
           <p className="text-sm text-ink-variant mt-1">

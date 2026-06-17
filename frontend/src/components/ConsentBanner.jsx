@@ -46,7 +46,7 @@ export default function ConsentBanner() {
           <div className="max-w-[1280px] mx-auto px-6 py-4
                           flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <p className="text-sm text-ink-variant leading-relaxed max-w-3xl">
-              By continuing to use Sport Club, you agree to our{' '}
+              By continuing to use QIU Sports Club, you agree to our{' '}
               <Link to="/privacy" className="text-primary underline">
                 Privacy Policy
               </Link>{' '}

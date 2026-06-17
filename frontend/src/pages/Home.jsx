@@ -182,7 +182,7 @@ export default function Home() {
             <div className="mt-4 flex items-center gap-3">
               <img
                 src="/export-assets/logo/QIU-Sports-Club-Logo.png"
-                alt="Sport Club"
+                alt="QIU Sports Club"
                 style={{ height: '56px', width: 'auto' }}
               />
               <span className="font-display text-headline-lg sm:text-display-lg leading-tight">

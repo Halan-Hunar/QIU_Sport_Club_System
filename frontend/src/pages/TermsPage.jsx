@@ -41,7 +41,7 @@ export default function TermsOfService() {
 
       <Section title="1. Acceptance of Terms">
         <p>
-          By accessing or using Sport Club (&ldquo;the platform&rdquo;), you agree to be
+          By accessing or using QIU Sports Club (&ldquo;the platform&rdquo;), you agree to be
           bound by these Terms of Service. If you do not agree to these terms, you must
           not access or use the platform.
         </p>
@@ -51,7 +51,7 @@ export default function TermsOfService() {
 
       <Section title="2. Platform Purpose">
         <p>
-          Sport Club is a tournament management and results display platform. It provides
+          QIU Sports Club is a tournament management and results display platform. It provides
           tools for organising tournaments and presenting brackets, fixtures, standings,
           statistics, and related sporting information. All content displayed on the
           platform is provided for informational purposes only.

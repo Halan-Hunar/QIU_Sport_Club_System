@@ -123,8 +123,7 @@ export default function TeamDetail() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <span className="sc-chip bg-white/20 text-white">University Athletics</span>
-            <h1 className="font-display text-headline-lg sm:text-display-lg mt-3 leading-tight">
+            <h1 className="font-display text-headline-lg sm:text-display-lg leading-tight">
               {team.name}
             </h1>
 

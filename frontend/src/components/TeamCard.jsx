@@ -66,7 +66,6 @@ export default function TeamCard({ team, isAdmin, isAuthenticated, onEdit, onDel
             <h3 className="font-display text-base sm:text-headline-md text-white leading-tight">
               {team.name}
             </h3>
-            <p className="text-[11px] sm:text-sm text-white/80 mt-0.5">University Athletics</p>
           </div>
         </div>
 

@@ -1,11 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, LayoutGrid, Activity, UserSquare2 } from 'lucide-react';
+import { Users, Swords, CircleDot } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useTeamStore } from '../store/teamStore';
+import { apiFetch } from '../lib/api';
 import CreateTeamModal from '../components/CreateTeamModal';
 import TeamCard from '../components/TeamCard';
+
+const API = import.meta.env.VITE_API_URL;
 
 function CardSkeleton() {
   return (
@@ -31,8 +34,23 @@ export default function Teams() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState('');
+  const [systemStats, setSystemStats] = useState(null);
 
   useEffect(() => { fetchTeams(); }, [fetchTeams]);
+
+  // Same totals the Home hero shows — kept in sync via the public stats endpoint.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(`${API}/api/match-events/stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setSystemStats(data);
+      } catch { /* silent — stat strip just shows 0s */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (isAdmin && searchParams.get('new') === '1') {
@@ -108,21 +126,14 @@ export default function Teams() {
         </div>
       </div>
 
-      {/* Stat strip — icon + label above, big tabular number below.
-          Visitors don't see Total Players. */}
+      {/* Stat strip — mirrors the Home hero (Teams · Matches Played · Goals). */}
       {!loading && teams.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 sm:mb-8">
+        <div className="grid grid-cols-3 gap-3 mb-6 sm:mb-8">
           {[
-            { label: 'Total Teams', Icon: Users, value: teams.length, show: true },
-            {
-              label: 'Total Players',
-              Icon: UserSquare2,
-              value: teams.reduce((s, t) => s + (t.player_count || 0), 0),
-              show: isAuthenticated,
-            },
-            { label: 'Disciplines', Icon: LayoutGrid, value: 'All', show: true },
-            { label: 'Status', Icon: Activity, value: 'Active', show: true },
-          ].filter((s) => s.show).map((s) => (
+            { label: 'Teams',          Icon: Users,     value: systemStats?.total_teams   ?? teams.length },
+            { label: 'Matches Played', Icon: Swords,    value: systemStats?.total_matches ?? 0 },
+            { label: 'Goals',          Icon: CircleDot, value: systemStats?.total_goals   ?? 0 },
+          ].map((s) => (
             <div key={s.label}
                  className="bg-white border border-outline-variant/30 shadow-card
                             rounded-md px-4 py-3 flex flex-col items-start min-w-0">

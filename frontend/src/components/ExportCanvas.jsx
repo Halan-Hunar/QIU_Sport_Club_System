@@ -181,7 +181,7 @@ function Footer() {
           color: COLORS.onDark,
           letterSpacing: '0.06em',
         }}>
-          Sport Club
+          QIU Sports Club
         </span>
       </div>
     </>
