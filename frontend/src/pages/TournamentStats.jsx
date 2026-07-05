@@ -3,12 +3,21 @@ import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Target, TrendingUp, Trophy, ShieldCheck, Share2, Pencil, Star,
+  Shield, Sparkles, Hand,
 } from 'lucide-react';
 import { useTournamentStatsStore } from '../store/tournamentStatsStore';
 import { useAuthStore } from '../store/authStore';
 import { sportLabel } from '../constants/sports';
 import ExportModal from '../components/ExportModal';
-import BestPlayerModal from '../components/BestPlayerModal';
+import AwardModal from '../components/AwardModal';
+
+// The four manually-curated individual awards, in display order.
+const MANUAL_AWARDS = [
+  { key: 'best_player',     label: 'Best Player',     Icon: Star,     tone: 'text-tertiary' },
+  { key: 'best_defender',   label: 'Best Defender',   Icon: Shield,   tone: 'text-primary' },
+  { key: 'best_playmaker',  label: 'Best Playmaker',  Icon: Sparkles, tone: 'text-secondary' },
+  { key: 'best_goalkeeper', label: 'Best Goalkeeper', Icon: Hand,     tone: 'text-emerald-600' },
+];
 
 const monthYear = (iso) => {
   if (!iso) return '';
@@ -113,13 +122,59 @@ function HeroCard({ Icon, tone, label, value, sub, edit }) {
   );
 }
 
+// Champion Stats — the winning team's run through the tournament.
+function ChampionStats({ stats }) {
+  const cs = stats?.champion_stats;
+  if (!cs) return null;
+  const color = cs.team_color || '#00668a';
+  const tiles = [
+    { label: 'Played', value: cs.played },
+    { label: 'Won', value: cs.won },
+    { label: 'Drawn', value: cs.drawn },
+    { label: 'Lost', value: cs.lost },
+    { label: 'Goals For', value: cs.goals_for },
+    { label: 'Goals Against', value: cs.goals_against },
+    { label: 'Goal Diff', value: cs.goal_diff > 0 ? `+${cs.goal_diff}` : cs.goal_diff },
+    { label: 'Clean Sheets', value: cs.clean_sheets },
+  ];
+  return (
+    <section className="bg-white rounded-md border border-outline-variant/30 shadow-card p-5 mb-8">
+      <div className="border-b border-outline-variant/30 pb-3 mb-4 flex items-center gap-3">
+        <div
+          className="w-11 h-11 rounded-full flex items-center justify-center text-white shadow-sm flex-shrink-0"
+          style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }}
+        >
+          <Trophy size={20} strokeWidth={2.25} aria-hidden />
+        </div>
+        <div className="min-w-0">
+          <h2 className="font-display text-headline-md text-ink leading-tight truncate">
+            {cs.team_name || 'Champion'}
+          </h2>
+          <p className="text-xs text-ink-variant mt-0.5">Champion&rsquo;s tournament run</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {tiles.map((t) => (
+          <div key={t.label} className="bg-surface-low rounded-md px-4 py-3 text-center">
+            <p className="font-display text-[1.75rem] text-ink leading-none tabular-nums">{t.value}</p>
+            <p className="text-[11px] font-label uppercase tracking-wider text-ink-variant mt-1.5">
+              {t.label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function TournamentStats() {
   const { id } = useParams();
   const { data, loading, error, fetch: fetchStats } = useTournamentStatsStore();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const [exportOpen, setExportOpen] = useState(false);
-  const [bestPlayerOpen, setBestPlayerOpen] = useState(false);
+  // Which manual award is being edited, e.g. { key, label } — null when closed.
+  const [awardModal, setAwardModal] = useState(null);
 
   useEffect(() => { fetchStats(id); }, [id, fetchStats]);
 
@@ -137,7 +192,10 @@ export default function TournamentStats() {
   );
 
   const showChampion = applicable.includes('champion');
-  const showBestPlayer = applicable.includes('best_player') || isAdmin;
+  // Backend flags the manual awards as applicable for every team-sport
+  // tournament that tracks scorers, so this covers both the visitor view (TBD
+  // cards) and the admin view (editable cards).
+  const showAwards = applicable.includes('best_player');
 
   return (
     <motion.div
@@ -244,9 +302,9 @@ export default function TournamentStats() {
             />
           </div>
 
-          {/* Hero awards row: Champion + Best Player */}
-          {(showChampion || showBestPlayer) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {/* Hero awards row: Champion + manual individual awards */}
+          {(showChampion || showAwards) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
               {showChampion && (
                 <HeroCard
                   Icon={Trophy}
@@ -256,30 +314,34 @@ export default function TournamentStats() {
                   sub={data.champion ? `${data.champion.kind === 'player' ? 'Player' : 'Team'}` : 'Awaiting Final result'}
                 />
               )}
-              {showBestPlayer && (
+              {showAwards && MANUAL_AWARDS.map(({ key, label, Icon, tone }) => (
                 <HeroCard
-                  Icon={Star}
-                  tone="text-tertiary"
-                  label="Best Player"
-                  value={data.best_player?.player_name ?? null}
-                  sub={data.best_player?.team_name ?? (isAdmin ? 'Tap pencil to set' : null)}
+                  key={key}
+                  Icon={Icon}
+                  tone={tone}
+                  label={label}
+                  value={data[key]?.player_name ?? null}
+                  sub={data[key]?.team_name ?? (isAdmin ? 'Tap pencil to set' : null)}
                   edit={isAdmin && (
                     <button
                       type="button"
-                      onClick={() => setBestPlayerOpen(true)}
+                      onClick={() => setAwardModal({ key, label })}
                       className="absolute top-3 right-3 w-8 h-8 rounded-full
                                  bg-surface-low hover:bg-primary-container/15
                                  text-ink-variant hover:text-primary
                                  flex items-center justify-center transition-colors"
-                      aria-label="Edit Best Player"
+                      aria-label={`Edit ${label}`}
                     >
                       <Pencil size={14} strokeWidth={2.5} />
                     </button>
                   )}
                 />
-              )}
+              ))}
             </div>
           )}
+
+          {/* Champion Stats — the winning team's run */}
+          <ChampionStats stats={data} />
 
           {/* Leaderboards — Top Scorers + Clean Sheets */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
@@ -362,10 +424,11 @@ export default function TournamentStats() {
         tournament={t}
         stats={data}
       />
-      <BestPlayerModal
-        open={bestPlayerOpen}
-        onClose={() => setBestPlayerOpen(false)}
+      <AwardModal
+        open={!!awardModal}
+        onClose={() => setAwardModal(null)}
         tournamentId={id}
+        award={awardModal}
       />
     </motion.div>
   );

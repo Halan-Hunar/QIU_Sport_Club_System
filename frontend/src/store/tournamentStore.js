@@ -105,6 +105,36 @@ export const useTournamentStore = create((set, get) => ({
     }
   },
 
+  // Permanently end a tournament (status → completed, stamps ended_at). Data is
+  // retained forever — teams/players are soft-deleted, never removed.
+  endTournament: async (id) => {
+    set({ saving: true, error: null });
+    try {
+      const res = await apiFetch(`${API}/api/tournaments/${id}/end`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        set({ error: data.error || 'Failed to end tournament', saving: false });
+        return null;
+      }
+      set((s) => ({
+        tournaments: s.tournaments.map((t) =>
+          t.id === id ? { ...t, ...data.tournament } : t,
+        ),
+        current: s.current && s.current.tournament.id === id
+          ? { ...s.current, tournament: { ...s.current.tournament, ...data.tournament } }
+          : s.current,
+        saving: false,
+      }));
+      return data.tournament;
+    } catch {
+      set({ error: 'Connection failed.', saving: false });
+      return null;
+    }
+  },
+
   deleteTournament: async (id) => {
     set({ saving: true, error: null });
     try {

@@ -196,11 +196,14 @@ router.get('/tournament/:id', async (req, res) => {
     tournament,
     applicable,
     champion: null,
+    champion_stats: null,
     top_scorers: [],
     clean_sheets: [],
     most_wins: [],
     best_player: null,
-    best_gk: null,
+    best_defender: null,
+    best_playmaker: null,
+    best_goalkeeper: null,
     summary: {
       total_goals: 0,
       matches_completed: 0,
@@ -260,6 +263,7 @@ router.get('/tournament/:id', async (req, res) => {
   // Strictly derived from a completed match in the 'Final' round. We do not
   // infer the champion from standings or any other source. If no such match
   // exists, `out.champion` stays null and the frontend shows TBD / hides the card.
+  let championTeamId = null;
   if (applicable.includes('champion')) {
     const { data: finals } = await supabaseAdmin
       .from('matches')
@@ -275,10 +279,53 @@ router.get('/tournament/:id', async (req, res) => {
       .limit(1);
     const final = finals?.[0];
     if (final?.winner_team) {
+      championTeamId = final.winner_team.id;
       out.champion = { kind: 'team', name: final.winner_team.name, color: final.winner_team.primary_color };
     } else if (final?.winner_player) {
       out.champion = { kind: 'player', name: final.winner_player.name, jersey_number: final.winner_player.jersey_number };
     }
+  }
+
+  // ── Champion stats ─────────────────────────────────────────
+  // The champion team's run through this tournament: matches played, won,
+  // drawn, lost, goals for/against and clean sheets. Only computed for team
+  // champions (individual-sport winners don't have a goals-based profile).
+  if (championTeamId) {
+    const { data: cm } = await supabaseAdmin
+      .from('matches')
+      .select('home_team_id, away_team_id, home_score, away_score, winner_id')
+      .eq('tournament_id', tournamentId)
+      .eq('status', 'completed')
+      .or(`home_team_id.eq.${championTeamId},away_team_id.eq.${championTeamId}`);
+
+    let played = 0, won = 0, drawn = 0, lost = 0, gf = 0, ga = 0, cs = 0;
+    for (const m of cm ?? []) {
+      const isHome = m.home_team_id === championTeamId;
+      const forGoals = (isHome ? m.home_score : m.away_score) ?? 0;
+      const agGoals = (isHome ? m.away_score : m.home_score) ?? 0;
+      played += 1;
+      gf += forGoals;
+      ga += agGoals;
+      if (agGoals === 0) cs += 1;
+      // winner_id is authoritative; fall back to score comparison.
+      const isWin = m.winner_id ? m.winner_id === championTeamId : forGoals > agGoals;
+      const isLoss = m.winner_id ? m.winner_id !== championTeamId && forGoals !== agGoals
+                                 : forGoals < agGoals;
+      if (forGoals === agGoals) drawn += 1;
+      else if (isWin) won += 1;
+      else if (isLoss) lost += 1;
+    }
+
+    out.champion_stats = {
+      team_name: out.champion?.name ?? null,
+      team_color: out.champion?.color ?? null,
+      played, won, drawn, lost,
+      goals_for: gf,
+      goals_against: ga,
+      goal_diff: gf - ga,
+      clean_sheets: cs,
+    };
+    applicable.push('champion_stats');
   }
 
   // ── Top scorers ────────────────────────────────────────────
@@ -407,52 +454,43 @@ router.get('/tournament/:id', async (req, res) => {
     }
   }
 
-  // ── Best Player (admin-selected, manual override) ──────────
-  // Stored in `tournaments.best_player_name` + `tournaments.best_player_team_id`.
-  // Public visitors see TBD until an admin sets it.
+  // ── Individual awards (admin-selected, manual) ─────────────
+  // Best Player / Defender / Playmaker / Goalkeeper are stored directly on the
+  // tournaments row as `<key>_name` + `<key>_team_id`. Public visitors see TBD
+  // until an admin sets them. Applies to team-sport tournaments with scorers.
   if (!tournament.is_individual && applicable.includes('top_scorer')) {
-    applicable.push('best_player');
+    applicable.push('best_player', 'best_defender', 'best_playmaker', 'best_goalkeeper');
 
-    const { data: bp } = await supabaseAdmin
+    const { data: aw } = await supabaseAdmin
       .from('tournaments')
       .select(`
         best_player_name,
-        best_player_team:teams!tournaments_best_player_team_id_fkey(id, name, primary_color)
+        best_player_team:teams!tournaments_best_player_team_id_fkey(id, name, primary_color),
+        best_defender_name,
+        best_defender_team:teams!tournaments_best_defender_team_id_fkey(id, name, primary_color),
+        best_playmaker_name,
+        best_playmaker_team:teams!tournaments_best_playmaker_team_id_fkey(id, name, primary_color),
+        best_goalkeeper_name,
+        best_goalkeeper_team:teams!tournaments_best_goalkeeper_team_id_fkey(id, name, primary_color)
       `)
       .eq('id', tournamentId)
       .single();
 
-    if (bp?.best_player_name) {
-      out.best_player = {
-        player_name: bp.best_player_name,
-        player_id: null,
-        team_name: bp.best_player_team?.name ?? null,
-        team_color: bp.best_player_team?.primary_color ?? null,
-        team_id: bp.best_player_team?.id ?? null,
-      };
-    }
-  }
+    const buildAward = (name, team) =>
+      name
+        ? {
+            player_name: name,
+            player_id: null,
+            team_name: team?.name ?? null,
+            team_color: team?.primary_color ?? null,
+            team_id: team?.id ?? null,
+          }
+        : null;
 
-  // ── Best GK (goalkeeper of the top clean-sheet team) ────────
-  if (applicable.includes('clean_sheet') && out.clean_sheets.length > 0) {
-    const top = out.clean_sheets[0];
-    const { data: keepers } = await supabaseAdmin
-      .from('players')
-      .select('id, name')
-      .eq('team_id', top.team_id)
-      .eq('position', 'Goalkeeper')
-      .limit(1);
-    const gk = keepers?.[0];
-    if (gk) {
-      out.best_gk = {
-        player_name: gk.name,
-        player_id: gk.id,
-        team_name: top.team_name,
-        team_color: top.team_color,
-        clean_sheet_count: top.clean_sheet_count,
-      };
-      applicable.push('best_gk');
-    }
+    out.best_player = buildAward(aw?.best_player_name, aw?.best_player_team);
+    out.best_defender = buildAward(aw?.best_defender_name, aw?.best_defender_team);
+    out.best_playmaker = buildAward(aw?.best_playmaker_name, aw?.best_playmaker_team);
+    out.best_goalkeeper = buildAward(aw?.best_goalkeeper_name, aw?.best_goalkeeper_team);
   }
 
   res.json(out);

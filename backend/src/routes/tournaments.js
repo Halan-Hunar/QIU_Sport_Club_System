@@ -418,29 +418,48 @@ router.post('/:id/advance-groups', requireAuth, requireAdmin, async (req, res) =
 });
 
 // ─── PATCH /api/tournaments/:id/awards ────────────────────────
-// Admin-only: set the manually-curated Best Player for the tournament. Stored
-// directly on the tournaments row so the public stats endpoint can read it
-// without an extra join. Free-text name (no players.id) is allowed because
+// Admin-only: set the manually-curated individual awards for the tournament
+// (Best Player, Best Defender, Best Playmaker, Best Goalkeeper). Stored
+// directly on the tournaments row so the public stats endpoint can read them
+// without an extra join. Free-text names (no players.id) are allowed because
 // admins may want to credit a player who was never in our roster.
-const bestPlayerSchema = z.object({
-  best_player_name: z.string().trim().min(1).max(120).nullable(),
-  best_player_team_id: z.string().uuid().nullable().optional(),
-});
+// Send only the keys you want to change; each award is a `<key>_name` +
+// `<key>_team_id` pair. Passing a null name clears that award.
+const AWARD_KEYS = ['best_player', 'best_defender', 'best_playmaker', 'best_goalkeeper'];
+
+const awardsSchema = z
+  .object(
+    AWARD_KEYS.reduce((acc, key) => {
+      acc[`${key}_name`] = z.string().trim().min(1).max(120).nullable().optional();
+      acc[`${key}_team_id`] = z.string().uuid().nullable().optional();
+      return acc;
+    }, {}),
+  )
+  .refine((d) => Object.keys(d).length > 0, { message: 'No award fields provided' });
 
 router.patch('/:id/awards', requireAuth, requireAdmin, async (req, res) => {
-  const parsed = bestPlayerSchema.safeParse(req.body);
+  const parsed = awardsSchema.safeParse(req.body);
   if (!parsed.success) return sendValidationError(res, parsed);
 
-  const payload = {
-    best_player_name: parsed.data.best_player_name,
-    best_player_team_id: parsed.data.best_player_team_id ?? null,
-  };
+  // Build the update payload from whichever award keys were supplied. When a
+  // `<key>_name` is present we also normalise its team id (defaulting to null).
+  const payload = {};
+  for (const key of AWARD_KEYS) {
+    if (`${key}_name` in parsed.data) {
+      payload[`${key}_name`] = parsed.data[`${key}_name`];
+      payload[`${key}_team_id`] = parsed.data[`${key}_team_id`] ?? null;
+    } else if (`${key}_team_id` in parsed.data) {
+      payload[`${key}_team_id`] = parsed.data[`${key}_team_id`] ?? null;
+    }
+  }
+
+  const selectCols = ['id', ...AWARD_KEYS.flatMap((k) => [`${k}_name`, `${k}_team_id`])].join(', ');
 
   const { data, error } = await supabaseAdmin
     .from('tournaments')
     .update(payload)
     .eq('id', req.params.id)
-    .select('id, best_player_name, best_player_team_id')
+    .select(selectCols)
     .single();
 
   if (error || !data) {
@@ -448,7 +467,49 @@ router.patch('/:id/awards', requireAuth, requireAdmin, async (req, res) => {
     return res.status(404).json({ error: 'Tournament not found' });
   }
 
-  logger.info(`Tournament ${data.id} best player set to "${data.best_player_name}" by ${req.user.email}`);
+  logger.info(`Tournament ${data.id} awards updated by ${req.user.email}`);
+  res.json({ tournament: data });
+});
+
+// ─── POST /api/tournaments/:id/end ────────────────────────────
+// Admin-only: permanently mark a tournament as finished. Sets status to
+// 'completed' and stamps ended_at. All teams, matches, events, awards and
+// derived stats remain in the database (teams/players are soft-deleted, never
+// hard-deleted), so the tournament and its record live on the site forever.
+router.post('/:id/end', requireAuth, requireAdmin, async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('tournaments')
+    .update({ status: 'completed', ended_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    logger.error(`End tournament failed: ${error?.message ?? 'not found'}`);
+    return res.status(404).json({ error: 'Tournament not found' });
+  }
+
+  logger.info(`Tournament ended: ${data.id} by ${req.user.email}`);
+  res.json({ tournament: data });
+});
+
+// ─── POST /api/tournaments/:id/reopen ─────────────────────────
+// Admin-only: undo an accidental "end" — flips the tournament back to active
+// and clears ended_at.
+router.post('/:id/reopen', requireAuth, requireAdmin, async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('tournaments')
+    .update({ status: 'active', ended_at: null })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    logger.error(`Reopen tournament failed: ${error?.message ?? 'not found'}`);
+    return res.status(404).json({ error: 'Tournament not found' });
+  }
+
+  logger.info(`Tournament reopened: ${data.id} by ${req.user.email}`);
   res.json({ tournament: data });
 });
 

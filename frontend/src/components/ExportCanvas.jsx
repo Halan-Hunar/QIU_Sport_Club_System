@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from 'react';
-import { Trophy, Target, ShieldCheck, Star, Shield, TrendingUp } from 'lucide-react';
+import { Trophy, Target, ShieldCheck, Star, Shield, TrendingUp, Hand, Sparkles } from 'lucide-react';
 
 // "Vibrant Sky" palette — pulled directly from tailwind.config.js so
 // exports feel like an extension of the website rather than a separate brand.
@@ -1111,8 +1111,11 @@ function SingleLeaderboardLayout({ stats, kind, width, height }) {
 
   return (
     <div style={{
+      // Start below the header block. The tournament title can wrap to two
+      // lines (long names) and the sport pill sits under it, so 360 keeps the
+      // table clear of the heading instead of overlapping it.
       position: 'absolute',
-      top: 200,
+      top: 360,
       left: 40,
       right: 40,
       bottom: 80,
@@ -1131,6 +1134,124 @@ function SingleLeaderboardLayout({ stats, kind, width, height }) {
   );
 }
 
+// ─── STATS — Champion layout ────────────────────────────────────────
+// A hero card for the tournament winner plus their run: played / won / drawn /
+// lost / goals for / against / GD / clean sheets.
+function ChampionLayout({ stats, width, height }) {
+  const champion = stats?.champion;
+  const cs = stats?.champion_stats;
+  const color = cs?.team_color || champion?.color || COLORS.accent;
+
+  const tiles = cs ? [
+    { label: 'Played', value: cs.played },
+    { label: 'Won', value: cs.won },
+    { label: 'Drawn', value: cs.drawn },
+    { label: 'Lost', value: cs.lost },
+    { label: 'Goals For', value: cs.goals_for },
+    { label: 'Goals Against', value: cs.goals_against },
+    { label: 'Goal Diff', value: cs.goal_diff > 0 ? `+${cs.goal_diff}` : cs.goal_diff },
+    { label: 'Clean Sheets', value: cs.clean_sheets },
+  ] : [];
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 360,
+      left: 40,
+      right: 40,
+      bottom: 100,
+      overflow: 'hidden',
+      fontFamily: FONT_LABEL,
+    }}>
+      {/* Champion hero card */}
+      <div style={{
+        background: COLORS.card,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 18,
+        padding: '32px 34px',
+        boxShadow: '0 6px 22px rgba(0, 30, 48, 0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 24,
+        marginBottom: 24,
+      }}>
+        <div style={{
+          width: 96, height: 96, borderRadius: 999,
+          background: `linear-gradient(135deg, ${color}, ${color}cc)`,
+          color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 44,
+          flexShrink: 0,
+          boxShadow: '0 4px 14px rgba(0,30,48,0.25)',
+        }}>
+          <Trophy size={44} strokeWidth={2} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            fontSize: 15, fontWeight: 700,
+            letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: COLORS.textSecondary,
+          }}>
+            Champion
+          </div>
+          <div style={{
+            fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 52,
+            color: COLORS.text, letterSpacing: '-0.02em', lineHeight: 1.05,
+            marginTop: 6,
+            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          }}>
+            {champion?.name || cs?.team_name || 'TBD'}
+          </div>
+        </div>
+      </div>
+
+      {/* Stat tiles */}
+      {cs ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 16,
+        }}>
+          {tiles.map((t) => (
+            <div key={t.label} style={{
+              background: COLORS.card,
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 16,
+              padding: '22px 26px',
+              boxShadow: '0 4px 18px rgba(0, 30, 48, 0.16)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+            }}>
+              <span style={{
+                fontSize: 20, fontWeight: 600, color: COLORS.textSecondary,
+              }}>
+                {t.label}
+              </span>
+              <span style={{
+                fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 44,
+                color: COLORS.text, lineHeight: 1,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {t.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{
+          color: COLORS.onDarkSoft, fontSize: 20, textAlign: 'center', marginTop: 40,
+        }}>
+          The champion is decided once the Final is completed.
+        </div>
+      )}
+
+      <span style={{ display: 'none' }}>{width}x{height}</span>
+    </div>
+  );
+}
+
 // ─── STATS — overview layout ────────────────────────────────────────
 // Mirrors the on-site summary strip: 4 summary stats (total goals, goals/
 // match, biggest win, clean sheets) + Champion + Best Player. No detailed
@@ -1141,6 +1262,7 @@ function StatsOverviewLayout({ stats, width, height }) {
   const summary = stats.summary || {};
   const champion = stats.champion;
   const bestPlayer = stats.best_player;
+  const topScorer = (stats.top_scorers || [])[0] || null;
 
   // ── Summary stat tiles ──
   const biggest = summary.biggest_win;
@@ -1182,7 +1304,9 @@ function StatsOverviewLayout({ stats, width, height }) {
     },
   ];
 
-  // ── Headline award cards (Champion + Best Player only) ──
+  // ── Headline award cards ──
+  // Champion + Best Player, then the Top Scorer and the remaining manual
+  // awards (Best Defender / Goalkeeper / Playmaker).
   const headlines = [];
   if (applicable.includes('champion')) {
     headlines.push({
@@ -1198,6 +1322,29 @@ function StatsOverviewLayout({ stats, width, height }) {
       sub: bestPlayer?.team_name ?? 'TBD',
     });
   }
+  if (applicable.includes('top_scorer') && topScorer) {
+    headlines.push({
+      key: 'top_scorer', Icon: Target, label: 'Top Scorer',
+      value: topScorer.player_name,
+      sub: `${topScorer.goal_count} ${topScorer.goal_count === 1 ? 'goal' : 'goals'}`
+        + (topScorer.team_name ? ` · ${topScorer.team_name}` : ''),
+    });
+  }
+  const extraAwards = [
+    { key: 'best_defender', Icon: Shield, label: 'Best Defender' },
+    { key: 'best_goalkeeper', Icon: Hand, label: 'Best Goalkeeper' },
+    { key: 'best_playmaker', Icon: Sparkles, label: 'Best Playmaker' },
+  ];
+  for (const a of extraAwards) {
+    const award = stats[a.key];
+    if (applicable.includes(a.key) || award) {
+      headlines.push({
+        key: a.key, Icon: a.Icon, label: a.label,
+        value: award?.player_name,
+        sub: award?.team_name ?? 'TBD',
+      });
+    }
+  }
 
   // 360 leaves a clear gap between the bottom of the header pill (~330) and
   // the first row of cards, matching the on-site spacing.
@@ -1211,38 +1358,40 @@ function StatsOverviewLayout({ stats, width, height }) {
       overflow: 'hidden',
       fontFamily: FONT_LABEL,
     }}>
-      {/* Champion + Best Player row (top of the export) */}
+      {/* Award cards row (top of the export): Champion, Best Player, Top
+          Scorer, Best Defender / Goalkeeper / Playmaker. Kept compact so up to
+          six cards sit above the summary tiles without overflowing. */}
       {headlines.length > 0 && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: headlines.length === 1 ? '1fr' : '1fr 1fr',
-          gap: 18,
-          marginBottom: 28,
+          gap: 16,
+          marginBottom: 24,
         }}>
           {headlines.map((h) => (
             <div key={h.key} style={{
               background: COLORS.card,
               border: `1px solid ${COLORS.border}`,
-              borderRadius: 18,
-              padding: '24px 26px',
+              borderRadius: 16,
+              padding: '18px 20px',
               boxShadow: '0 4px 18px rgba(0, 30, 48, 0.16)',
               display: 'flex',
               flexDirection: 'column',
-              gap: 14,
+              gap: 10,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{
-                  width: 52, height: 52, borderRadius: 999,
+                  width: 44, height: 44, borderRadius: 999,
                   background: 'rgba(0,189,254,0.12)',
                   color: COLORS.accent,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                  <h.Icon size={24} strokeWidth={2.25} />
+                  <h.Icon size={22} strokeWidth={2.25} />
                 </div>
                 <span style={{
-                  fontSize: 14, fontWeight: 700,
-                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                  fontSize: 13, fontWeight: 700,
+                  letterSpacing: '0.16em', textTransform: 'uppercase',
                   color: COLORS.textSecondary,
                 }}>
                   {h.label}
@@ -1250,7 +1399,7 @@ function StatsOverviewLayout({ stats, width, height }) {
               </div>
               <div style={{
                 fontFamily: FONT_DISPLAY,
-                fontWeight: 700, fontSize: 32,
+                fontWeight: 700, fontSize: 26,
                 color: h.value ? COLORS.text : COLORS.textSecondary,
                 fontStyle: h.value ? 'normal' : 'italic',
                 lineHeight: 1.15,
@@ -1261,7 +1410,10 @@ function StatsOverviewLayout({ stats, width, height }) {
                 {h.value || 'TBD'}
               </div>
               {h.sub && (
-                <div style={{ fontSize: 16, color: COLORS.textSecondary }}>
+                <div style={{
+                  fontSize: 14, color: COLORS.textSecondary,
+                  overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                }}>
                   {h.sub}
                 </div>
               )}
@@ -1274,32 +1426,32 @@ function StatsOverviewLayout({ stats, width, height }) {
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: 18,
+        gap: 16,
       }}>
         {summaryTiles.map((t) => (
           <div key={t.key} style={{
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
-            borderRadius: 18,
-            padding: '24px 26px',
+            borderRadius: 16,
+            padding: '18px 22px',
             boxShadow: '0 4px 18px rgba(0, 30, 48, 0.16)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 14,
+            gap: 10,
           }}>
             <div style={{
-              width: 52, height: 52, borderRadius: 12,
+              width: 46, height: 46, borderRadius: 12,
               background: t.tint,
               color: t.iconColor,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <t.Icon size={26} strokeWidth={2.25} />
+              <t.Icon size={24} strokeWidth={2.25} />
             </div>
             <div>
               <div style={{
                 fontFamily: FONT_DISPLAY,
                 fontWeight: 700,
-                fontSize: 56,
+                fontSize: 46,
                 lineHeight: 1,
                 color: COLORS.text,
                 letterSpacing: '-0.02em',
@@ -1308,8 +1460,8 @@ function StatsOverviewLayout({ stats, width, height }) {
                 {t.value}
               </div>
               <div style={{
-                marginTop: 10,
-                fontSize: 18,
+                marginTop: 8,
+                fontSize: 17,
                 color: COLORS.textSecondary,
                 fontWeight: 500,
               }}>
@@ -1620,6 +1772,9 @@ const ExportCanvas = forwardRef(function ExportCanvas(
       )}
       {type === 'stats_overview' && (
         <StatsOverviewLayout stats={stats} width={w} height={h} />
+      )}
+      {type === 'champion' && (
+        <ChampionLayout stats={stats} width={w} height={h} />
       )}
       {(type === 'top_scorers' || type === 'clean_sheets' || type === 'most_wins') && (
         <SingleLeaderboardLayout stats={stats} kind={type} width={w} height={h} />

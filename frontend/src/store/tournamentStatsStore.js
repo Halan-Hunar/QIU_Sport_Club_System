@@ -29,20 +29,22 @@ export const useTournamentStatsStore = create((set, get) => ({
     }
   },
 
-  setBestPlayer: async (tournamentId, { name, teamId, teamName, teamColor }) => {
+  // Set (or clear) a manual individual award. `awardKey` is one of
+  // 'best_player' | 'best_defender' | 'best_playmaker' | 'best_goalkeeper'.
+  setAward: async (tournamentId, awardKey, { name, teamId, teamName, teamColor }) => {
     set({ saving: true, error: null });
     try {
       const res = await apiFetch(`${API}/api/tournaments/${tournamentId}/awards`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
-          best_player_name: name || null,
-          best_player_team_id: teamId || null,
+          [`${awardKey}_name`]: name || null,
+          [`${awardKey}_team_id`]: teamId || null,
         }),
       });
       const body = await res.json();
       if (!res.ok) {
-        set({ error: body.error || 'Failed to save best player', saving: false });
+        set({ error: body.error || 'Failed to save award', saving: false });
         return false;
       }
       // Patch local state so the card refreshes without a full refetch.
@@ -50,20 +52,49 @@ export const useTournamentStatsStore = create((set, get) => ({
       if (current) {
         const next = { ...current };
         if (name) {
-          next.best_player = {
+          next[awardKey] = {
             player_name: name,
             player_id: null,
             team_id: teamId ?? null,
             team_name: teamName ?? null,
             team_color: teamColor ?? null,
           };
-          if (!next.applicable.includes('best_player')) {
-            next.applicable = [...next.applicable, 'best_player'];
+          if (!next.applicable.includes(awardKey)) {
+            next.applicable = [...next.applicable, awardKey];
           }
         } else {
-          next.best_player = null;
+          next[awardKey] = null;
         }
         set({ data: next, saving: false });
+      } else {
+        set({ saving: false });
+      }
+      return true;
+    } catch {
+      set({ error: 'Connection failed.', saving: false });
+      return false;
+    }
+  },
+
+  // Permanently end a tournament (status → completed, stamps ended_at).
+  endTournament: async (tournamentId) => {
+    set({ saving: true, error: null });
+    try {
+      const res = await apiFetch(`${API}/api/tournaments/${tournamentId}/end`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        set({ error: body.error || 'Failed to end tournament', saving: false });
+        return false;
+      }
+      const current = get().data;
+      if (current?.tournament) {
+        set({
+          data: { ...current, tournament: { ...current.tournament, ...body.tournament } },
+          saving: false,
+        });
       } else {
         set({ saving: false });
       }

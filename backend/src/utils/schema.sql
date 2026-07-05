@@ -303,6 +303,41 @@ alter table public.tournaments
   add column if not exists best_player_team_id uuid
   references public.teams(id) on delete set null;
 
+-- Additional manually-curated individual awards, mirroring Best Player.
+-- Each is a free-text name + the team they played for.
+alter table public.tournaments
+  add column if not exists best_defender_name text;
+alter table public.tournaments
+  add column if not exists best_defender_team_id uuid
+  references public.teams(id) on delete set null;
+
+alter table public.tournaments
+  add column if not exists best_playmaker_name text;
+alter table public.tournaments
+  add column if not exists best_playmaker_team_id uuid
+  references public.teams(id) on delete set null;
+
+alter table public.tournaments
+  add column if not exists best_goalkeeper_name text;
+alter table public.tournaments
+  add column if not exists best_goalkeeper_team_id uuid
+  references public.teams(id) on delete set null;
+
+-- End-of-tournament stamp. Set when an admin clicks "End Tournament"; the row
+-- (and all its teams/matches/stats) is then kept permanently.
+alter table public.tournaments
+  add column if not exists ended_at timestamptz;
+
+-- Soft-delete for teams (players already have this). Deleting a team sets
+-- deleted_at instead of removing the row, so its record survives inside every
+-- tournament, match and stat it was part of.
+alter table public.teams
+  add column if not exists deleted_at timestamptz;
+
+-- Ensure players carry the soft-delete column too (used by the app already).
+alter table public.players
+  add column if not exists deleted_at timestamptz;
+
 create table if not exists public.tournament_players (
   id uuid primary key default uuid_generate_v4(),
   tournament_id uuid not null references public.tournaments(id) on delete cascade,

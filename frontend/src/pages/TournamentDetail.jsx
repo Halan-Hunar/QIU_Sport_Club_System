@@ -9,7 +9,7 @@ import { usePlayerStore } from '../store/playerStore';
 import CreateTournamentModal from '../components/CreateTournamentModal';
 import Modal from '../components/Modal';
 import PlayerDetailModal from '../components/PlayerDetailModal';
-import { Trophy, Plus, X, Loader2, UserPlus, Share2 } from 'lucide-react';
+import { Trophy, Plus, X, Loader2, UserPlus, Share2, Flag, CheckCircle2 } from 'lucide-react';
 import Bracket from '../components/Bracket';
 import StandingsTable from '../components/StandingsTable';
 import MatchCard from '../components/MatchCard';
@@ -343,8 +343,8 @@ export default function TournamentDetail() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const {
-    current, loading, error,
-    fetchTournamentById, unregisterTeam, unregisterPlayer, deleteTournament,
+    current, loading, error, saving,
+    fetchTournamentById, unregisterTeam, unregisterPlayer, deleteTournament, endTournament,
   } = useTournamentStore();
 
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -402,6 +402,14 @@ export default function TournamentDetail() {
     if (!window.confirm(`Delete tournament "${current.tournament.name}"? This removes all matches and registrations.`)) return;
     const ok = await deleteTournament(id);
     if (ok) window.history.back();
+  };
+
+  const handleEnd = async () => {
+    if (!current) return;
+    if (!window.confirm(
+      `End "${current.tournament.name}"?\n\nThe tournament is marked completed and kept on the site permanently. All teams, matches and stats stay saved — even if you later delete a team or player, their record remains inside this tournament.`,
+    )) return;
+    await endTournament(id);
   };
 
   const handleAdvanceGroups = async () => {
@@ -500,6 +508,15 @@ export default function TournamentDetail() {
               {formatDateRange(tournament.start_date, tournament.end_date)}
             </p>
 
+            {tournament.ended_at && (
+              <p className="mt-1 text-white/70 text-sm inline-flex items-center gap-1.5">
+                <CheckCircle2 size={14} strokeWidth={2.25} />
+                Ended {new Date(tournament.ended_at).toLocaleDateString(undefined, {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                })}
+              </p>
+            )}
+
             {tournament.description && (
               <p className="mt-3 text-white/80 max-w-2xl">{tournament.description}</p>
             )}
@@ -531,6 +548,23 @@ export default function TournamentDetail() {
                 >
                   Edit
                 </button>
+                {tournament.status !== 'completed' ? (
+                  <button
+                    onClick={handleEnd}
+                    disabled={saving}
+                    className="sc-btn-secondary !bg-white/15 !border-white/30 !text-white
+                               hover:!bg-white/25"
+                  >
+                    <Flag size={16} strokeWidth={2.25} />
+                    {saving ? 'Ending…' : 'End Tournament'}
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center justify-center gap-1.5 rounded-full
+                                   bg-white/20 border border-white/30 px-3 py-2 text-sm font-semibold text-white">
+                    <CheckCircle2 size={16} strokeWidth={2.25} />
+                    Ended
+                  </span>
+                )}
                 <button
                   onClick={handleDelete}
                   className="sc-btn-secondary !bg-white/10 !border-white/20 !text-white

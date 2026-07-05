@@ -22,6 +22,7 @@ const TYPE_OPTIONS = [
 
 const STATS_TYPE_OPTIONS = [
   { id: 'stats_overview', label: 'Overview',     icon: LayoutGrid,  applicableKey: null },
+  { id: 'champion',       label: 'Champion',     icon: Trophy,      applicableKey: 'champion_stats' },
   { id: 'top_scorers',    label: 'Top Scorers',  icon: Target,      applicableKey: 'top_scorer' },
   { id: 'clean_sheets',   label: 'Clean Sheets', icon: ShieldCheck, applicableKey: 'clean_sheet' },
 ];

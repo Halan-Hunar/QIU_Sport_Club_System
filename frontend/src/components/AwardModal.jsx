@@ -8,9 +8,12 @@ const API = import.meta.env.VITE_API_URL;
 
 // Admin-only modal: pick a team registered in this tournament, then either
 // pick a player from that team's roster or free-text a name. We don't store
-// player_id — best player is a curated label, not a join.
-export default function BestPlayerModal({ open, onClose, tournamentId }) {
-  const setBestPlayer = useTournamentStatsStore((s) => s.setBestPlayer);
+// player_id — these individual awards are curated labels, not joins.
+//
+// `award` = { key, label } where key is one of
+// 'best_player' | 'best_defender' | 'best_playmaker' | 'best_goalkeeper'.
+export default function AwardModal({ open, onClose, tournamentId, award }) {
+  const setAward = useTournamentStatsStore((s) => s.setAward);
   const saving = useTournamentStatsStore((s) => s.saving);
 
   const [teams, setTeams] = useState([]);          // [{ id, name, primary_color, secondary_color }]
@@ -26,6 +29,9 @@ export default function BestPlayerModal({ open, onClose, tournamentId }) {
   const freeFormRef = useRef(null);
 
   const [localError, setLocalError] = useState(null);
+
+  const label = award?.label ?? 'Award';
+  const awardKey = award?.key ?? 'best_player';
 
   // Load registered teams whenever the modal opens.
   useEffect(() => {
@@ -105,7 +111,7 @@ export default function BestPlayerModal({ open, onClose, tournamentId }) {
       setLocalError('Pick a team.');
       return;
     }
-    const ok = await setBestPlayer(tournamentId, {
+    const ok = await setAward(tournamentId, awardKey, {
       name,
       teamId,
       teamName: selectedTeam?.name ?? null,
@@ -115,7 +121,7 @@ export default function BestPlayerModal({ open, onClose, tournamentId }) {
   };
 
   const handleClear = async () => {
-    const ok = await setBestPlayer(tournamentId, { name: null, teamId: null });
+    const ok = await setAward(tournamentId, awardKey, { name: null, teamId: null });
     if (ok) onClose();
   };
 
@@ -123,8 +129,8 @@ export default function BestPlayerModal({ open, onClose, tournamentId }) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Set Best Player"
-      subtitle="Pick the tournament's standout — saved as a manual award."
+      title={`Set ${label}`}
+      subtitle="Pick the standout — saved as a manual award."
     >
       <form onSubmit={handleSave} className="space-y-5">
         <div>

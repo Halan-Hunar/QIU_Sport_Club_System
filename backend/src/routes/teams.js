@@ -48,6 +48,7 @@ router.get('/', async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('teams')
     .select('id, name, logo_url, primary_color, secondary_color, created_at, players(id)')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -118,6 +119,7 @@ router.get('/:id', async (req, res) => {
     .from('teams')
     .select('*')
     .eq('id', req.params.id)
+    .is('deleted_at', null)
     .single();
 
   if (teamErr || !team) {
@@ -190,18 +192,24 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ─── DELETE /api/teams/:id ────────────────────────────────────
+// Soft delete: set deleted_at so the team vanishes from the public roster and
+// team pool, while every historical reference (tournament registrations,
+// matches, events, stats) stays intact. This is what lets a team's record live
+// on inside the tournaments it played even after it's "deleted".
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('teams')
-    .delete()
-    .eq('id', req.params.id);
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
-  if (error) {
-    logger.error(`Delete team failed: ${error.message}`);
+  if (error || !data) {
+    logger.error(`Delete team failed: ${error?.message ?? 'not found'}`);
     return res.status(500).json({ error: 'Failed to delete team' });
   }
 
-  logger.info(`Team deleted: ${req.params.id} by ${req.user.email}`);
+  logger.info(`Team soft-deleted: ${req.params.id} by ${req.user.email}`);
   res.json({ success: true });
 });
 
