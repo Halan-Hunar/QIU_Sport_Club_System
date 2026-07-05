@@ -56,18 +56,11 @@ export const useEventStore = create((set, get) => ({
         saving: false,
       }));
 
-      // Mirror the backend's score bump so the scoreboard updates instantly.
-      // For 'goal' the team_id team scores; for 'own_goal' the opponent does.
-      const { event_type, team_id, match_id } = payload;
-      if ((event_type === 'goal' || event_type === 'own_goal') && team_id && match_id) {
-        const matches = useMatchStore.getState().matches;
-        const match = matches.find((m) => m.id === match_id);
-        if (match) {
-          const scoringTeamId = event_type === 'goal'
-            ? team_id
-            : (team_id === match.home_team_id ? match.away_team_id : match.home_team_id);
-          useMatchStore.getState().bumpScore(match_id, scoringTeamId);
-        }
+      // Apply the authoritative scores the backend returned so the scoreboard
+      // updates instantly. Setting absolute values (rather than incrementing)
+      // means a realtime UPDATE for the same match can't double-count the goal.
+      if (data.match) {
+        useMatchStore.getState().setScore(data.match.id, data.match);
       }
 
       return data.event;

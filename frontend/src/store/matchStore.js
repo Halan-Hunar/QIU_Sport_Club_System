@@ -171,21 +171,16 @@ export const useMatchStore = create((set, get) => ({
     }
   },
 
-  // Used by eventStore.logEvent to apply the backend's score bump locally,
-  // so the scoreboard reflects a logged goal immediately even when realtime
-  // is delayed (or the publication isn't wired yet).
-  bumpScore: (matchId, scoringTeamId) => {
+  // Used by eventStore.logEvent to apply the score returned by the backend,
+  // so the scoreboard reflects a logged goal immediately even when realtime is
+  // delayed (or the publication isn't wired yet). This SETS absolute scores
+  // rather than incrementing, so if a realtime UPDATE for the same row also
+  // lands, the goal is never counted twice.
+  setScore: (matchId, { home_score, away_score }) => {
     set((s) => ({
-      matches: s.matches.map((m) => {
-        if (m.id !== matchId) return m;
-        if (scoringTeamId === m.home_team_id) {
-          return { ...m, home_score: (m.home_score ?? 0) + 1 };
-        }
-        if (scoringTeamId === m.away_team_id) {
-          return { ...m, away_score: (m.away_score ?? 0) + 1 };
-        }
-        return m;
-      }),
+      matches: s.matches.map((m) =>
+        m.id === matchId ? { ...m, home_score, away_score } : m,
+      ),
     }));
   },
 

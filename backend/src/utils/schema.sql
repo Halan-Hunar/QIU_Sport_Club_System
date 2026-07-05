@@ -178,6 +178,13 @@ join public.teams t on t.id = tt.team_id
 left join public.matches m on m.tournament_id = tt.tournament_id
   and m.status = 'completed'
   and (m.home_team_id = tt.team_id or m.away_team_id = tt.team_id)
+  -- Standings only reflect league play: round-robin "Round N" games and
+  -- group-stage "Group …" games. Knockout fixtures (Final, Semi Final,
+  -- Quarter Final, Round of N) must NOT add points to the group table.
+  and (
+    m.round like 'Group %'
+    or (m.round like 'Round %' and m.round not like 'Round of %')
+  )
 group by tt.tournament_id, tt.team_id, t.name, t.primary_color, tt.group_name;
 
 -- ─── ROW LEVEL SECURITY ──────────────────────────────────────

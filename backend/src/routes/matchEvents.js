@@ -155,7 +155,11 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     return res.status(500).json({ error: 'Failed to log event' });
   }
 
-  // If it's a goal, bump the scoring side's score on the match
+  // If it's a goal, bump the scoring side's score on the match. We return the
+  // resulting scores so the client can set them absolutely (not increment
+  // again) — that keeps the scoreboard correct even when a realtime update for
+  // the same row also arrives, instead of double-counting the goal.
+  let matchScore = null;
   if (parsed.data.event_type === 'goal' || parsed.data.event_type === 'own_goal') {
     const { data: match } = await supabaseAdmin
       .from('matches')
@@ -179,13 +183,25 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
           ? { away_score: (match.away_score ?? 0) + 1 }
           : null;
       if (upd) {
-        await supabaseAdmin.from('matches').update(upd).eq('id', match.id);
+        const { data: updated } = await supabaseAdmin
+          .from('matches')
+          .update(upd)
+          .eq('id', match.id)
+          .select('id, home_score, away_score')
+          .single();
+        matchScore = updated ?? {
+          id: match.id,
+          home_score: upd.home_score ?? match.home_score,
+          away_score: upd.away_score ?? match.away_score,
+        };
+      } else {
+        matchScore = { id: match.id, home_score: match.home_score, away_score: match.away_score };
       }
     }
   }
 
   logger.info(`Event logged: ${data.event_type} match ${parsed.data.match_id} by ${req.user.email}`);
-  res.status(201).json({ event: data });
+  res.status(201).json({ event: data, match: matchScore });
 });
 
 // ─── DELETE /api/match-events/:id ─────────────────────────────
