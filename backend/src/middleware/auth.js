@@ -22,7 +22,7 @@ export const requireAuth = async (req, res, next) => {
   // Fetch role from our users table (admin client bypasses RLS)
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('users')
-    .select('role')
+    .select('role,display_name')
     .eq('id', user.id)
     .single();
 
@@ -30,7 +30,7 @@ export const requireAuth = async (req, res, next) => {
     return res.status(401).json({ error: 'User profile not found' });
   }
 
-  req.user = { ...user, role: profile.role };
+  req.user = { ...user, role: profile.role, display_name: profile.display_name };
   next();
 };
 

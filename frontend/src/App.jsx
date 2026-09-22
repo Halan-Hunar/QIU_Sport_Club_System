@@ -1,24 +1,29 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Teams from './pages/Teams';
-import TeamDetail from './pages/TeamDetail';
-import Tournaments from './pages/Tournaments';
-import TournamentDetail from './pages/TournamentDetail';
-import TournamentStats from './pages/TournamentStats';
-import Players from './pages/Players';
-import Stats from './pages/Stats';
-import AdminDashboard from './pages/AdminDashboard';
-import PrivacyPolicy from './pages/PolicyPage';
-import TermsOfService from './pages/TermsPage';
-import Declined from './pages/Declined';
-import NotFound from './pages/NotFound';
+const Login = lazy(() => import('./pages/Login'));
+const Teams = lazy(() => import('./pages/Teams'));
+const TeamDetail = lazy(() => import('./pages/TeamDetail'));
+const Tournaments = lazy(() => import('./pages/Tournaments'));
+const TournamentDetail = lazy(() => import('./pages/TournamentDetail'));
+const TournamentStats = lazy(() => import('./pages/TournamentStats'));
+const Players = lazy(() => import('./pages/Players'));
+const Stats = lazy(() => import('./pages/Stats'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const PrivacyPolicy = lazy(() => import('./pages/PolicyPage'));
+const TermsOfService = lazy(() => import('./pages/TermsPage'));
+const Declined = lazy(() => import('./pages/Declined'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 import ConsentBanner from './components/ConsentBanner';
+
+const News = lazy(() => import('./pages/News'));
+const NewsDetail = lazy(() => import('./pages/NewsDetail'));
+const NewsAdmin = lazy(() => import('./pages/NewsAdmin'));
+const NewsEditor = lazy(() => import('./pages/NewsEditor'));
 
 function Layout({ children }) {
   const location = useLocation();
@@ -39,8 +44,19 @@ function App() {
 
   return (
     <Layout>
+      <Suspense fallback={<p role="status" className="max-w-5xl mx-auto p-8">Loading page…</p>}>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/events" element={<News />} />
+        <Route path="/events/:id" element={<NewsDetail />} />
+        <Route path="/admin/events" element={<ProtectedRoute adminOnly><NewsAdmin /></ProtectedRoute>} />
+        <Route path="/admin/events/new" element={<ProtectedRoute adminOnly><NewsEditor key="new" /></ProtectedRoute>} />
+        <Route path="/admin/events/:id" element={<ProtectedRoute adminOnly><NewsEditor /></ProtectedRoute>} />
+        <Route path="/news" element={<News />} />
+        <Route path="/news/:id" element={<NewsDetail />} />
+        <Route path="/admin/news" element={<ProtectedRoute adminOnly><NewsAdmin /></ProtectedRoute>} />
+        <Route path="/admin/news/new" element={<ProtectedRoute adminOnly><NewsEditor key="new" /></ProtectedRoute>} />
+        <Route path="/admin/news/:id" element={<ProtectedRoute adminOnly><NewsEditor /></ProtectedRoute>} />
         <Route path="/login" element={<Login />} />
 
         <Route path="/teams" element={<Teams />} />
@@ -77,6 +93,7 @@ function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       <ConsentBanner />
     </Layout>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -8,7 +8,7 @@ import {
 import { useTournamentStatsStore } from '../store/tournamentStatsStore';
 import { useAuthStore } from '../store/authStore';
 import { sportLabel } from '../constants/sports';
-import ExportModal from '../components/ExportModal';
+const ExportModal = lazy(() => import('../components/ExportModal'));
 import AwardModal from '../components/AwardModal';
 
 // The four manually-curated individual awards, in display order.
@@ -418,12 +418,14 @@ export default function TournamentStats() {
         </>
       ) : null}
 
+      {exportOpen && <Suspense fallback={<p role="status">Loading export tools…</p>}>
       <ExportModal
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         tournament={t}
         stats={data}
       />
+      </Suspense>}
       <AwardModal
         open={!!awardModal}
         onClose={() => setAwardModal(null)}

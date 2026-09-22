@@ -5,6 +5,7 @@ import {
   Trophy, Users, Swords, Calendar, CircleDot, ArrowRight,
 } from 'lucide-react';
 import { useHomeStore } from '../store/homeStore';
+import LatestNews from '../components/LatestNews';
 import { sportLabel } from '../constants/sports';
 
 const fadeUp = {
@@ -132,15 +133,14 @@ function ResultCard({ match }) {
 }
 
 export default function Home() {
-  const { stats, upcoming, latestResults, loading, error, fetchHomeData } = useHomeStore();
+  const { stats, upcoming, latestResults, hasActive, sectionLoading, champion, championLoading, error, fetchHomeData } = useHomeStore();
 
   useEffect(() => { fetchHomeData(); }, [fetchHomeData]);
 
   const featured = stats?.featured_tournament;
-  const isLoadingHero = loading && !stats;
+  const isLoadingHero = sectionLoading.stats && !stats;
 
-  // When a featured tournament exists, the hero shows ITS counts.
-  // Otherwise we fall back to cross-system totals so the page still feels alive.
+  // Only an ongoing tournament contributes hero statistics.
   const competitorLabel = featured?.is_individual ? 'Players' : 'Teams';
   const competitorCount = featured ? featured.competitors_count : (stats?.total_teams ?? 0);
   const matchesCount = featured ? featured.matches_played : (stats?.total_matches ?? 0);
@@ -156,6 +156,9 @@ export default function Home() {
       >
         <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full
                         bg-primary-container/30 blur-3xl pointer-events-none" />
+        <img src="/club-logo-large.webp" alt="" aria-hidden="true"
+          className="hidden lg:block absolute -right-12 top-1/2 -translate-y-1/2 h-[115%] w-auto max-w-[45%] object-contain opacity-10 pointer-events-none select-none"
+          style={{ filter: 'brightness(0) invert(1)' }} />
         <div className="relative">
           {/* Header chip */}
           {isLoadingHero ? (
@@ -181,7 +184,8 @@ export default function Home() {
           ) : (
             <div className="mt-4 flex items-center gap-3">
               <img
-                src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+                src="/club-logo.webp"
+                className="object-contain"
                 alt="QIU Sports Club"
                 style={{ height: '56px', width: 'auto' }}
               />
@@ -194,15 +198,15 @@ export default function Home() {
           <p className="text-white/80 mt-3 max-w-2xl">
             {featured
               ? `Real-time scores, rosters, and standings — built for the players, coaches, and the crowd.`
-              : `Live scores, rosters, brackets, and stats for every competition.`}
+              : `Club events, articles, and live scores for every competition.`}
           </p>
 
           {/* Stats grid — equal-width vertical blocks, properly aligned */}
-          <div className="grid grid-cols-3 gap-3 mt-6 max-w-xl">
+          {featured?.status === 'active' && <div className="grid grid-cols-3 gap-3 mt-6 max-w-xl">
             <HeroStat Icon={Users}     label={competitorLabel}    value={competitorCount} loading={isLoadingHero} />
             <HeroStat Icon={Swords}    label="Matches Played"     value={matchesCount}    loading={isLoadingHero} />
             <HeroStat Icon={CircleDot} label="Goals"              value={goalsCount}      loading={isLoadingHero} />
-          </div>
+          </div>}
 
           {error && (
             <p className="mt-4 text-sm bg-white/10 rounded-sm px-3 py-2 inline-block">
@@ -270,6 +274,8 @@ export default function Home() {
         </motion.div>
       </section>
 
+      <LatestNews />
+
       {/* Latest Results — aligned in the same 3-up grid as the feature cards */}
       {latestResults.length > 0 && (
         <section className="mt-8">
@@ -280,14 +286,25 @@ export default function Home() {
         </section>
       )}
 
+      {!sectionLoading.tournaments && hasActive === false && champion && (
+        <section className="sc-card mt-10 p-6 sm:p-8 flex flex-wrap items-center justify-between gap-6" aria-labelledby="champion-heading">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-primary-container/15 text-primary rounded-full"><Trophy size={32} aria-hidden="true" /></div>
+            <div><p className="text-primary font-medium">Last champion</p>
+              <h2 id="champion-heading" className="text-headline-lg mt-1">{champion.name}</h2>
+              <p className="text-ink-variant mt-1">{champion.tournament_name}</p></div>
+          </div>
+          <Link className="sc-btn-secondary" to={`/tournaments/${champion.tournament_id}/stats`}>View tournament run</Link>
+        </section>
+      )}
       {/* Upcoming & Active */}
-      <section className="mt-10">
+      {(sectionLoading.tournaments || upcoming.length > 0) && <section className="mt-10">
         <div className="flex items-center gap-2 mb-4">
           <Trophy size={20} strokeWidth={2} className="text-primary" aria-hidden />
           <h2 className="font-display text-headline-md text-ink">Upcoming &amp; Active</h2>
         </div>
 
-        {loading && upcoming.length === 0 ? (
+        {sectionLoading.tournaments && upcoming.length === 0 ? (
           <div className="flex gap-3 overflow-x-auto -mx-6 px-6 pb-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i}
@@ -305,7 +322,8 @@ export default function Home() {
             {upcoming.map((t) => <TournamentMiniCard key={t.id} t={t} />)}
           </div>
         )}
-      </section>
+      </section>}
+      {championLoading && upcoming.length === 0 && <p role="status" className="mt-8 text-ink-muted">Loading the latest champion…</p>}
     </div>
   );
 }

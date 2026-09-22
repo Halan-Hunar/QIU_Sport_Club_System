@@ -137,6 +137,8 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      <Link to="/admin/events" className="sc-btn-primary mb-6">Manage Club Events</Link>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <KpiTile

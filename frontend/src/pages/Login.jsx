@@ -6,12 +6,12 @@ import { useAuthStore } from '../store/authStore';
 export default function Login() {
   const navigate = useNavigate();
   const { login, loading, error } = useAuthStore();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ display_name: '', password: '' });
   const [remember, setRemember] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = await login(form.email, form.password);
+    const success = await login(form.display_name, form.password);
     if (success) navigate('/');
   };
 
@@ -27,7 +27,7 @@ export default function Login() {
           {/* Logo crest */}
           <div className="flex flex-col items-center text-center mb-6">
             <img
-              src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+              src="/club-logo.webp"
               alt="QIU Sports Club"
               style={{ height: '64px', width: 'auto', marginBottom: '12px' }}
             />
@@ -38,7 +38,7 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="sc-label">Email Address</label>
+              <label htmlFor="login-name" className="sc-label">Email or display name</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-variant">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -47,19 +47,21 @@ export default function Login() {
                   </svg>
                 </span>
                 <input
-                  type="email"
+                  id="login-name"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  value={form.display_name}
+                  onChange={(e) => setForm({ ...form, display_name: e.target.value })}
                   className="sc-input pl-10"
-                  placeholder="name@example.com"
+                  placeholder="Your email or display name"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="sc-label !mb-0">Password</label>
+                <label htmlFor="login-password" className="sc-label !mb-0">Password</label>
                 <a href="#" className="font-label text-label-md font-semibold text-primary
                                        uppercase tracking-wider hover:underline">
                   Forgot?
@@ -73,7 +75,9 @@ export default function Login() {
                   </svg>
                 </span>
                 <input
+                  id="login-password"
                   type="password"
+                  autoComplete="current-password"
                   required
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}

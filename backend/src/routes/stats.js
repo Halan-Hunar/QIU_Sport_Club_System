@@ -1,8 +1,28 @@
 import { Router } from 'express';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
+import { championFromFinal } from '../utils/champion.js';
 
 const router = Router();
+
+router.get('/latest-champion', async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.from('matches')
+      .select(`status,round,ended_at,created_at,
+        tournament:tournaments!inner(id,name,status),
+        winner_team:teams!matches_winner_id_fkey(id,name),
+        winner_player:players!matches_winner_player_id_fkey(id,name)`)
+      .eq('status', 'completed').eq('round', 'Final').eq('tournament.status', 'completed')
+      .or('winner_id.not.is.null,winner_player_id.not.is.null')
+      .order('ended_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }).limit(1);
+    if (error) throw error;
+    res.json({ champion: championFromFinal(data?.[0]) });
+  } catch (error) {
+    logger.error(`Latest champion failed: ${error.message}`);
+    res.status(500).json({ error: 'Could not load the latest champion.' });
+  }
+});
 
 const headCount = (table, filters = {}) => {
   let q = supabaseAdmin.from(table).select('*', { count: 'exact', head: true });
@@ -27,15 +47,64 @@ function applicableStats(sportType, isIndividual) {
 // ─── GET /api/stats ───────────────────────────────────────────
 // Cross-tournament rollup used by the public Stats overview and admin dash.
 router.get('/', async (_req, res) => {
-  // Top scorers across all tournaments.
-  const { data: goalRows, error: goalsErr } = await supabaseAdmin
+  // Independent reads run together; calculations and response shape stay the same.
+  const [
+    { data: goalRows, error: goalsErr },
+    { data: winnerRows, error: winsErr },
+    { data: recentMatches, error: recentErr },
+    { data: activityRows, error: actErr },
+    [teamsRes, playersRes, tournamentsRes, matchesRes,
+         goalsTotalRes, activeTournRes, liveMatchesRes]
+  ] = await Promise.all([
+    supabaseAdmin
     .from('match_events')
     .select(`
       player_id,
       player:players(id, name, jersey_number, team_id),
       team:teams(id, name, primary_color, secondary_color)
     `)
-    .eq('event_type', 'goal');
+    .eq('event_type', 'goal'),
+    supabaseAdmin
+    .from('matches')
+    .select('winner_id, winner:teams!matches_winner_id_fkey(id, name, primary_color)')
+    .eq('status', 'completed')
+    .not('winner_id', 'is', null),
+    supabaseAdmin
+    .from('matches')
+    .select(`
+      id, home_score, away_score, winner_id, ended_at,
+      tournament:tournaments(id, name),
+      home_team:teams!matches_home_team_id_fkey(id, name, primary_color),
+      away_team:teams!matches_away_team_id_fkey(id, name, primary_color)
+    `)
+    .eq('status', 'completed')
+    .order('ended_at', { ascending: false, nullsFirst: false })
+    .limit(10),
+    supabaseAdmin
+    .from('match_events')
+    .select(`
+      id, event_type, minute, created_at,
+      player:players(id, name),
+      team:teams(id, name, primary_color),
+      match:matches(
+        id, round,
+        tournament:tournaments(id, name)
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(15),
+    Promise.all([
+    headCount('teams'),
+    headCount('players'),
+    headCount('tournaments'),
+    headCount('matches'),
+    headCount('match_events', { event_type: 'goal' }),
+    headCount('tournaments', { status: 'active' }),
+    headCount('matches', { status: 'live' }),
+  ])
+  ]);
+  // Top scorers across all tournaments.
+
 
   if (goalsErr) {
     logger.error(`Stats goals failed: ${goalsErr.message}`);
@@ -62,11 +131,7 @@ router.get('/', async (_req, res) => {
     .slice(0, 10);
 
   // Most wins across all tournaments.
-  const { data: winnerRows, error: winsErr } = await supabaseAdmin
-    .from('matches')
-    .select('winner_id, winner:teams!matches_winner_id_fkey(id, name, primary_color)')
-    .eq('status', 'completed')
-    .not('winner_id', 'is', null);
+
 
   if (winsErr) {
     logger.error(`Stats wins failed: ${winsErr.message}`);
@@ -90,17 +155,7 @@ router.get('/', async (_req, res) => {
     .slice(0, 10);
 
   // Recent results.
-  const { data: recentMatches, error: recentErr } = await supabaseAdmin
-    .from('matches')
-    .select(`
-      id, home_score, away_score, winner_id, ended_at,
-      tournament:tournaments(id, name),
-      home_team:teams!matches_home_team_id_fkey(id, name, primary_color),
-      away_team:teams!matches_away_team_id_fkey(id, name, primary_color)
-    `)
-    .eq('status', 'completed')
-    .order('ended_at', { ascending: false, nullsFirst: false })
-    .limit(10);
+
 
   if (recentErr) {
     logger.error(`Stats recent failed: ${recentErr.message}`);
@@ -120,19 +175,7 @@ router.get('/', async (_req, res) => {
   }));
 
   // Recent activity for admin dashboard.
-  const { data: activityRows, error: actErr } = await supabaseAdmin
-    .from('match_events')
-    .select(`
-      id, event_type, minute, created_at,
-      player:players(id, name),
-      team:teams(id, name, primary_color),
-      match:matches(
-        id, round,
-        tournament:tournaments(id, name)
-      )
-    `)
-    .order('created_at', { ascending: false })
-    .limit(15);
+
 
   if (actErr) {
     logger.error(`Stats activity failed: ${actErr.message}`);
@@ -152,16 +195,7 @@ router.get('/', async (_req, res) => {
     tournament_name: a.match?.tournament?.name ?? null,
   }));
 
-  const [teamsRes, playersRes, tournamentsRes, matchesRes,
-         goalsTotalRes, activeTournRes, liveMatchesRes] = await Promise.all([
-    headCount('teams'),
-    headCount('players'),
-    headCount('tournaments'),
-    headCount('matches'),
-    headCount('match_events', { event_type: 'goal' }),
-    headCount('tournaments', { status: 'active' }),
-    headCount('matches', { status: 'live' }),
-  ]);
+
 
   const totals = {
     teams: teamsRes.count ?? 0,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
@@ -14,7 +14,7 @@ import Bracket from '../components/Bracket';
 import StandingsTable from '../components/StandingsTable';
 import MatchCard from '../components/MatchCard';
 import MatchDetailModal from '../components/MatchDetailModal';
-import ExportModal from '../components/ExportModal';
+const ExportModal = lazy(() => import('../components/ExportModal'));
 import GroupDrawModal from '../components/GroupDrawModal';
 
 const formatLabels = {
@@ -696,11 +696,11 @@ export default function TournamentDetail() {
                   {r.team.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link to={`/teams/${r.team.id}`}
+                  {isAdmin ? <Link to={`/teams/${r.team.id}`}
                         className="font-display text-headline-md text-ink hover:text-primary
                                    transition-colors block truncate">
                     {r.team.name}
-                  </Link>
+                  </Link> : <span className="font-display text-headline-md text-ink block truncate">{r.team.name}</span>}
                   <div className="flex gap-1.5 mt-1">
                     {r.seed != null && (
                       <span className="sc-chip bg-surface-low text-ink-variant">Seed #{r.seed}</span>
@@ -890,6 +890,7 @@ export default function TournamentDetail() {
         tournamentId={id}
         teams={teams}
       />
+      {exportOpen && <Suspense fallback={<p role="status">Loading export tools…</p>}>
       <ExportModal
         open={exportOpen}
         onClose={() => setExportOpen(false)}
@@ -897,6 +898,7 @@ export default function TournamentDetail() {
         matches={matches}
         standings={standings}
       />
+      </Suspense>}
     </motion.div>
   );
 }

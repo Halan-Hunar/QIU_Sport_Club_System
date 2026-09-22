@@ -6,26 +6,15 @@ import { useAuthStore } from '../store/authStore';
 // the public list. Players still requires auth.
 const PUBLIC_LINKS = [
   { to: '/', label: 'Home', end: true },
+  { to: '/events', label: 'Events' },
   { to: '/tournaments', label: 'Tournaments' },
   { to: '/teams', label: 'Teams' },
   { to: '/stats', label: 'Stats' },
 ];
-
-const AUTH_ONLY_LINKS = [
-  { to: '/players', label: 'Players' },
-];
-
 function getVisibleLinks(isLoggedIn) {
-  if (!isLoggedIn) return PUBLIC_LINKS;
-  // Insert Players between Teams and Stats so the nav order stays:
-  // Home, Tournaments, Teams, Players, Stats.
-  return [
-    PUBLIC_LINKS[0],
-    PUBLIC_LINKS[1],
-    PUBLIC_LINKS[2],
-    AUTH_ONLY_LINKS[0],
-    PUBLIC_LINKS[3],
-  ];
+  return isLoggedIn
+    ? [...PUBLIC_LINKS.slice(0, 4), { to: '/players', label: 'Players' }, PUBLIC_LINKS[4]]
+    : PUBLIC_LINKS;
 }
 
 function NavItem({ to, label, end }) {
@@ -34,7 +23,7 @@ function NavItem({ to, label, end }) {
       to={to}
       end={end}
       className={({ isActive }) =>
-        `relative font-label font-semibold uppercase tracking-wider text-sm
+        `relative font-label font-semibold uppercase tracking-wider text-sm whitespace-nowrap
          px-1 py-1 transition-colors
          ${isActive ? 'text-primary' : 'text-ink-variant hover:text-primary'}`
       }
@@ -70,43 +59,43 @@ export default function Navbar() {
         {/* Logo */}
         <Link
           to="/"
-          className="group"
+          className="group shrink-0"
+          aria-label="QIU Sports Club home"
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <img
-            src="/export-assets/logo/QIU-Sports-Club-Logo.png"
+            src="/club-logo.webp"
             alt=""
             style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
           />
-          <span className="font-display text-xl text-primary tracking-wide hidden sm:inline">
+          <span className="font-display text-lg text-primary tracking-wide hidden sm:inline whitespace-nowrap">
             QIU Sports Club
           </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden xl:flex items-center gap-5">
           {links.map((l) => <NavItem key={l.to} {...l} />)}
         </nav>
 
         {/* Auth */}
         <div className="flex items-center gap-2">
           {token && user ? (
-            <div className="hidden sm:flex items-center gap-3">
+            <div className="hidden xl:flex items-center gap-2">
               {user.role === 'admin' && (
                 <span className="sc-chip-primary">Admin</span>
               )}
-              <span className="text-sm text-ink-variant hidden lg:inline">{user.email}</span>
+              <span className="text-sm text-ink-variant max-w-32 truncate">{user.display_name || 'Club admin'}</span>
               <button onClick={handleLogout} className="sc-btn-ghost">Logout</button>
             </div>
-          ) : (
-            <Link to="/login" className="sc-btn-primary !py-2 !px-5">Login</Link>
-          )}
+          ) : null}
 
           {/* Mobile toggle */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="md:hidden p-2 rounded-full hover:bg-surface-low transition-colors"
+            className="xl:hidden p-2 rounded-full hover:bg-surface-low transition-colors"
             aria-label="Toggle menu"
+            aria-expanded={menuOpen}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               {menuOpen
@@ -119,7 +108,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-outline-variant/40 bg-white">
+        <div className="xl:hidden border-t border-outline-variant/40 bg-white">
           <nav className="px-6 py-4 flex flex-col gap-3">
             {links.map((l) => (
               <NavLink
@@ -137,7 +126,7 @@ export default function Navbar() {
             ))}
             {token && user && (
               <button onClick={handleLogout} className="sc-btn-ghost self-start">
-                Logout ({user.email})
+                Logout ({user.display_name || 'Club admin'})
               </button>
             )}
           </nav>

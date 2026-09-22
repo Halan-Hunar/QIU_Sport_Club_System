@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
@@ -6,7 +6,7 @@ import { useTeamStore } from '../store/teamStore';
 import AddPlayerModal from '../components/AddPlayerModal';
 import CreateTeamModal from '../components/CreateTeamModal';
 import RosterRow from '../components/RosterRow';
-import TeamExportModal from '../components/TeamExportModal';
+const TeamExportModal = lazy(() => import('../components/TeamExportModal'));
 import { Share2 } from 'lucide-react';
 
 const positions = ['All', 'Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'N/A'];
@@ -254,6 +254,7 @@ export default function TeamDetail() {
         onClose={() => setEditTeamOpen(false)}
         team={team}
       />
+      {exportOpen && <Suspense fallback={<p role="status">Loading export tools…</p>}>
       <TeamExportModal
         open={exportOpen}
         onClose={() => setExportOpen(false)}
@@ -261,6 +262,7 @@ export default function TeamDetail() {
         players={players}
         captains={captains}
       />
+      </Suspense>}
     </motion.div>
   );
 }

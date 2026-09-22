@@ -40,7 +40,9 @@ const authLimiter = rateLimit({
 });
 
 // ─── Body Parsing ──────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10kb' })); // prevent oversized payloads
+const standardJson = express.json({ limit: '10kb' });
+// News applies its own bounded parsers after admin authorization (including images).
+app.use((req, res, next) => req.path.startsWith('/api/news') ? next() : standardJson(req, res, next));
 
 // ─── Request Logging ───────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
@@ -57,6 +59,9 @@ import matchRoutes from './routes/matches.js';
 import matchEventRoutes from './routes/matchEvents.js';
 import awardRoutes from './routes/awards.js';
 import statsRoutes from './routes/stats.js';
+import { createNewsRouter } from './routes/news.js';
+import { supabaseAdmin } from './utils/supabase.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/teams', teamRoutes);
@@ -66,6 +71,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/match-events', matchEventRoutes);
 app.use('/api/awards', awardRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/news', createNewsRouter({ db: supabaseAdmin, authenticate: requireAuth, authorize: requireAdmin, log: logger }));
 
 // Health check
 app.get('/health', (_req, res) => {

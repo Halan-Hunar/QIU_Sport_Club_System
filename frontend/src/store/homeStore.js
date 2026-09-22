@@ -1,49 +1,35 @@
 import { create } from 'zustand';
 import { apiFetch } from '../lib/api';
+import { cachedPublicJson } from '../lib/publicCache';
 
-const API = import.meta.env.VITE_API_URL;
-
+let pending;
+const load = (path) => cachedPublicJson(path, async () => {
+  const response = await apiFetch(path);
+  if (!response.ok) throw new Error('Some home content could not be loaded. Please try again.');
+  return response.json();
+});
 export const useHomeStore = create((set) => ({
-  // /api/match-events/stats now includes featured_tournament alongside totals.
-  stats: null,
-  upcoming: [],          // up to 4 upcoming/active tournaments
-  latestResults: [],     // up to 3 most-recently-completed matches
-  loading: false,
+  stats: null, upcoming: [], latestResults: [], champion: null, hasActive: null,
+  loading: false, championLoading: false,
+  sectionLoading: { stats: true, tournaments: true, results: true },
   error: null,
-
-  fetchHomeData: async () => {
-    set({ loading: true, error: null });
-    try {
-      const [statsRes, tournamentsRes, latestRes] = await Promise.all([
-        apiFetch(`${API}/api/match-events/stats`),
-        apiFetch(`${API}/api/tournaments`),
-        apiFetch(`${API}/api/matches?status=completed&limit=3`),
-      ]);
-      const statsData = await statsRes.json();
-      const tournamentsData = await tournamentsRes.json();
-      const latestData = latestRes.ok ? await latestRes.json() : { matches: [] };
-
-      if (!statsRes.ok) {
-        set({ error: statsData.error || 'Failed to load stats', loading: false });
-        return;
-      }
-      if (!tournamentsRes.ok) {
-        set({ error: tournamentsData.error || 'Failed to load tournaments', loading: false });
-        return;
-      }
-
-      const upcoming = (tournamentsData.tournaments ?? [])
-        .filter((t) => t.status === 'active' || t.status === 'upcoming')
-        .slice(0, 4);
-
-      set({
-        stats: statsData,
-        upcoming,
-        latestResults: latestData.matches ?? [],
-        loading: false,
-      });
-    } catch {
-      set({ error: 'Connection failed.', loading: false });
-    }
+  fetchHomeData: () => {
+    if (pending) return pending;
+    set({ loading: true, championLoading: true, error: null,
+      sectionLoading: { stats: true, tournaments: true, results: true } });
+    const section = async (key, path, update) => {
+      try { set(update(await load(path))); }
+      catch (e) { set({ error: e.message }); }
+      finally { set((state) => ({ sectionLoading: { ...state.sectionLoading, [key]: false } })); }
+    };
+    pending = Promise.allSettled([
+      section('stats', '/api/match-events/stats', (stats) => ({ stats })),
+      section('tournaments', '/api/tournaments', (data) => ({ hasActive: (data.tournaments ?? []).some((t) => t.status === 'active'), upcoming: (data.tournaments ?? [])
+        .filter((t) => ['active', 'upcoming'].includes(t.status)).slice(0, 4) })),
+      section('results', '/api/matches?status=completed&limit=3', (data) => ({ latestResults: data.matches ?? [] })),
+      load('/api/stats/latest-champion').then((data) => set({ champion: data.champion }))
+        .catch(() => set({ champion: null })).finally(() => set({ championLoading: false })),
+    ]).finally(() => { pending = null; set({ loading: false }); });
+    return pending;
   },
 }));

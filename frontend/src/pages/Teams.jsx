@@ -90,11 +90,10 @@ export default function Teams() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="font-display text-headline-lg sm:text-display-lg text-ink leading-tight">
-            University Teams
+            Football Teams
           </h1>
           <p className="text-ink-variant mt-2 max-w-xl">
-            Browse the competitive athletic teams across the club —
-            from varsity football to academic sports clubs.
+            Browse the competitive football teams across the club.
           </p>
         </div>
 

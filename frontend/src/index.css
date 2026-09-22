@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+.news-body { overflow-wrap: anywhere; line-height: 1.85; font-size: 1.125rem; }
+.news-body p, .news-body ul, .news-body ol, .news-body blockquote { margin: 0 0 1.4em; }
+.news-body h2 { font-size: 1.7rem; margin: 1.5em 0 .6em; }
+.news-body h3, .news-body h4 { font-size: 1.3rem; margin: 1.3em 0 .6em; }
+.news-body ul { list-style: disc; padding-left: 1.5em; }
+.news-body ol { list-style: decimal; padding-left: 1.5em; }
+.news-body blockquote { border-left: 3px solid #0867d2; padding-left: 1em; color: #435570; }
+.news-body img { width: 100%; height: auto; border-radius: 1rem; margin: 1.5em 0; }
+.news-body a { color: #0867d2; text-decoration: underline; text-underline-offset: 3px; }
+.news-body pre { overflow-x: auto; padding: 1rem; background: #edf5ff; border-radius: .5rem; }
+.news-body hr { margin: 2rem 0; border-color: #c4cfdf; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

@@ -9,6 +9,7 @@
 // itself fails, the user is logged out via authStore.refreshToken and the
 // caller sees the 401 — at which point ProtectedRoute will bounce them.
 import { useAuthStore } from '../store/authStore';
+import { clearPublicCache } from './publicCache';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -50,5 +51,6 @@ export async function apiFetch(path, init = {}) {
     }
   }
 
+  if (res.ok && !['GET', 'HEAD'].includes((init.method || 'GET').toUpperCase())) clearPublicCache();
   return res;
 }

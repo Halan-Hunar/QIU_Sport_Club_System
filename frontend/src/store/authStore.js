@@ -6,16 +6,17 @@ export const useAuthStore = create((set, get) => ({
   user: null,
   token: localStorage.getItem('token') || null,
   loading: false,
+  initializing: !!localStorage.getItem('token'),
   error: null,
 
-  login: async (email, password) => {
+  login: async (display_name, password) => {
     set({ loading: true, error: null });
 
     try {
       const res = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ ...(display_name.includes('@') ? { email: display_name.trim() } : { display_name }), password }),
       });
 
       const data = await res.json();
@@ -84,7 +85,8 @@ export const useAuthStore = create((set, get) => ({
   // Call this on app load to restore session
   fetchMe: async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) { set({ initializing: false }); return; }
+    set({ initializing: true });
 
     try {
       const res = await fetch(`${API}/api/auth/me`, {
@@ -118,6 +120,8 @@ export const useAuthStore = create((set, get) => ({
       set({ user, token });
     } catch {
       // server unreachable, keep token for when it comes back
+    } finally {
+      set({ initializing: false });
     }
   },
 }));

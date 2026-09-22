@@ -33,15 +33,21 @@ router.get('/stats', async (_req, res) => {
   };
 
   // ── Cross-tournament totals ────────────────────────────────
-  const [teamsRes, completedRes, goalsRes, activeRes, upcomingRes] = await Promise.all([
+  const [teamsRes, completedRes, goalsRes, activeRes, upcomingRes, activesRes, nextRes] = await Promise.all([
     headCount('teams'),
     headCount('matches', { status: 'completed' }),
     headCount('match_events', { event_type: 'goal' }),
     headCount('tournaments', { status: 'active' }),
     headCount('tournaments', { status: 'upcoming' }),
+    supabaseAdmin.from('tournaments')
+      .select('id,name,sport_type,is_individual,status,format,start_date,end_date')
+      .eq('status','active').order('start_date', { ascending: false, nullsFirst: false }).limit(1),
+    supabaseAdmin.from('tournaments')
+      .select('id,name,sport_type,is_individual,status,format,start_date,end_date')
+      .eq('status','upcoming').order('start_date', { ascending: true, nullsFirst: false }).limit(1),
   ]);
 
-  const firstError = [teamsRes, completedRes, goalsRes, activeRes, upcomingRes]
+  const firstError = [teamsRes, completedRes, goalsRes, activeRes, upcomingRes, activesRes, nextRes]
     .find((r) => r.error)?.error;
   if (firstError) {
     logger.error(`Stats query failed: ${firstError.message}`);
@@ -49,25 +55,7 @@ router.get('/stats', async (_req, res) => {
   }
 
   // ── Featured tournament: active first, then upcoming ────────
-  let featured = null;
-  {
-    const { data: actives } = await supabaseAdmin
-      .from('tournaments')
-      .select('id, name, sport_type, is_individual, status, format, start_date, end_date')
-      .eq('status', 'active')
-      .order('start_date', { ascending: false, nullsFirst: false })
-      .limit(1);
-    if (actives?.[0]) featured = actives[0];
-  }
-  if (!featured) {
-    const { data: upcoming } = await supabaseAdmin
-      .from('tournaments')
-      .select('id, name, sport_type, is_individual, status, format, start_date, end_date')
-      .eq('status', 'upcoming')
-      .order('start_date', { ascending: true, nullsFirst: false })
-      .limit(1);
-    if (upcoming?.[0]) featured = upcoming[0];
-  }
+  let featured = activesRes.data?.[0] ?? nextRes.data?.[0] ?? null;
 
   if (featured) {
     // Per-tournament counts.
