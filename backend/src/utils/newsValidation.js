@@ -47,6 +47,7 @@ export const headSchema = z.object({
   major: z.string().trim().min(1, 'Enter a major.').max(120),
   accent_color: z.string().regex(/^#[0-9a-f]{6}$/i, 'Choose a valid color.'),
   is_current: z.boolean(),
+  is_founder: z.boolean(),
   head_number: z.number().int().min(1).max(999).nullable().default(null),
   cover_path: mediaPath.nullable(),
   cover_alt: z.string().trim().max(240),

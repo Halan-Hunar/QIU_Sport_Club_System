@@ -9,7 +9,7 @@ const BUCKET = 'club-news';
 const SUMMARY = 'id,title,author,organiser,co_organiser,article_date,event_date,cover_path,cover_alt,excerpt,status,published_at,updated_at';
 const uuid = z.string().uuid();
 const paging = z.object({
-  role: z.enum(['all', 'current', 'former']).default('all'),
+  role: z.enum(['all', 'founder','current', 'former']).default('all'),
   direction: z.enum(['asc', 'desc']).default('desc'),
   sort: z.enum(['event_date', 'article_date']).default('event_date'),
   page: z.coerce.number().int().min(1).max(10000).default(1),
@@ -21,11 +21,23 @@ const paging = z.object({
 export function createNewsRouter({ db, authenticate, authorize, log = console, heads = false }) {
   const table = heads ? 'club_heads' : 'club_news';
   const schema = heads ? headSchema : articleSchema;
-  const summary = heads ? 'id,title,major,accent_color,is_current,head_number,cover_path,cover_alt,excerpt,status,published_at,updated_at' : SUMMARY;
+  const summary = heads
+  ? 'id,title,major,accent_color,is_current,is_founder,head_number,cover_path,cover_alt,excerpt,status,published_at,updated_at'
+  : SUMMARY;
   function headListing(query, options) {
-    if (options.role !== 'all') query = query.eq('is_current', options.role === 'current');
-    return query.order('head_number', { ascending: options.direction === 'asc', nullsFirst: false });
+  if (options.role === 'founder') {
+    query = query.eq('is_founder', true);
+  } else if (options.role === 'current') {
+    query = query.eq('is_current', true);
+  } else if (options.role === 'former') {
+    query = query.eq('is_current', false).eq('is_founder', false);
   }
+
+  return query.order('head_number', {
+    ascending: options.direction === 'asc',
+    nullsFirst: false
+  });
+}
   const router = Router();
   router.use((_req, res, next) => {
     res.set('Cache-Control', 'private, no-store');
