@@ -45,7 +45,6 @@ export default function Heads({ manage = false }) {
       {!data.articles.length && <p className="sc-card p-8">{role !== 'all' ? 'No profiles match this filter. Choose All heads to see the full list.' : manage ? 'Create the first club head profile to get started.' : 'Club head profiles will appear here once published.'}</p>}
       <div className="grid sm:grid-cols-2 gap-6">{data.articles.map((profile) => <Link key={profile.id} to={manage ? `/admin/heads/${profile.id}` : `/club/heads/${profile.id}`} className="sc-card p-6 hover:shadow-md transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
         <div className="flex items-center gap-5"><HeadAvatar profile={profile} /><div className="min-w-0"><HeadStatus profile={profile} />{manage && <p className="text-xs text-ink-variant mt-1">{profile.status}</p>}<h2 className="text-headline-md mt-1 break-words">{profile.title}</h2><p className="text-sm text-ink-variant mt-2 break-words">{profile.major}</p></div></div>
-        <p className="text-ink-variant text-sm mt-5 leading-relaxed line-clamp-3">{profile.excerpt}</p>
       </Link>)}</div>
       {data.total > 12 && <nav aria-label="Profile pages" className="flex items-center justify-center gap-4 mt-8"><button className="sc-btn-secondary" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page}</span><button className="sc-btn-secondary" disabled={page * 12 >= data.total} onClick={() => setPage(page + 1)}>Next</button></nav>}
     </>}
