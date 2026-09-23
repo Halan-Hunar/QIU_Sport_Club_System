@@ -13,6 +13,7 @@ export const articleSchema = z.object({
   organiser: z.enum(['musa', 'shad', 'dyako']).nullable().default(null),
   co_organiser: z.enum(['halan']).nullable().default(null),
   article_date: date,
+  event_date: date.nullable().default(null),
   cover_path: mediaPath.nullable(),
   cover_alt: z.string().trim().max(240),
   body: z.string().max(60000),
@@ -40,3 +41,18 @@ export function excerpt(body) {
     .replace(/<[^>]*>/g, '').replace(/[#*_>`~]/g, '')
     .replace(/\s+/g, ' ').trim().slice(0, 200);
 }
+
+export const headSchema = z.object({
+  title: z.string().trim().min(1, 'Enter a name.').max(100),
+  major: z.string().trim().min(1, 'Enter a major.').max(120),
+  accent_color: z.string().regex(/^#[0-9a-f]{6}$/i, 'Choose a valid color.'),
+  is_current: z.boolean(),
+  head_number: z.number().int().min(1).max(999).nullable().default(null),
+  cover_path: mediaPath.nullable(),
+  cover_alt: z.string().trim().max(240),
+  body: z.string().max(60000),
+  status: z.enum(['draft', 'published']),
+}).strict().superRefine((profile, ctx) => {
+  if (profile.status === 'published' && !profile.body.trim())
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['body'], message: 'Write a biography before publishing.' });
+});

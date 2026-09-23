@@ -1,7 +1,11 @@
 import { apiFetch } from './api';
 
-export async function newsRequest(path = '', init = {}) {
-  const response = await apiFetch(`/api/news${path}`, { cache: 'no-store', ...init });
+export async function headsRequest(path = '', init = {}) {
+  return newsRequest(path, init, 'heads');
+}
+
+export async function newsRequest(path = '', init = {}, resource = 'news') {
+  const response = await apiFetch(`/api/${resource}${path}`, { cache: 'no-store', ...init });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Could not load Club Events.');
   return result;

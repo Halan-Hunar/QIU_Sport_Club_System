@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 // Teams is now public (visitor-readable, non-clickable cards) so it lives in
 // the public list. Players still requires auth.
 const PUBLIC_LINKS = [
   { to: '/', label: 'Home', end: true },
-  { to: '/events', label: 'Events' },
+  { to: '/club', label: 'The Club', club: true },
   { to: '/tournaments', label: 'Tournaments' },
   { to: '/teams', label: 'Teams' },
   { to: '/stats', label: 'Stats' },
@@ -15,6 +15,22 @@ function getVisibleLinks(isLoggedIn) {
   return isLoggedIn
     ? [...PUBLIC_LINKS.slice(0, 4), { to: '/players', label: 'Players' }, PUBLIC_LINKS[4]]
     : PUBLIC_LINKS;
+}
+
+function ClubMenu({ mobile = false, closeMenu = () => {} }) {
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const active = /^\/(events|news|club|admin\/(heads|events))/.test(location.pathname);
+  return <div className={mobile ? "relative" : "h-16 flex items-center"} onMouseEnter={() => { if (!mobile) setOpen(true); }} onMouseLeave={() => { if (!mobile) setOpen(false); }} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }} onKeyDown={(e) => { if (e.key === 'Escape') { setOpen(false); e.currentTarget.querySelector('button').focus(); } }}>
+    <button type="button" aria-expanded={open} aria-controls={mobile ? 'club-mobile-links' : 'club-desktop-links'} onClick={(e) => setOpen((previous) => !mobile && e.detail > 0 ? true : !previous)} className={`font-label font-semibold uppercase tracking-wider text-sm py-2 flex items-center gap-2 ${active ? 'text-primary' : 'text-ink-variant'}`}>
+      The Club <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="m3 4.5 3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+    <div id={mobile ? 'club-mobile-links' : 'club-desktop-links'} className={`club-dropdown ${mobile ? 'club-dropdown-mobile' : 'club-dropdown-desktop'} ${open ? 'is-open' : ''}`} inert={open ? undefined : ''}>
+      <div className="club-dropdown-inner">
+        {[{ to: '/events', label: 'Events', description: 'Club stories, activities, and highlights.' }, { to: '/club/heads', label: 'Heads of the Club', description: 'Meet our current and former club heads.' }].map((link) => <NavLink key={link.to} to={link.to} onClick={() => { setOpen(false); closeMenu(); }} className={({ isActive }) => `club-dropdown-link focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${isActive ? 'text-primary' : 'text-ink'}`}><span className="club-dropdown-title">{link.label}</span><span className="club-dropdown-description">{link.description}</span></NavLink>)}
+      </div>
+    </div>
+  </div>;
 }
 
 function NavItem({ to, label, end }) {
@@ -75,7 +91,7 @@ export default function Navbar() {
 
         {/* Desktop nav */}
         <nav className="hidden xl:flex items-center gap-5">
-          {links.map((l) => <NavItem key={l.to} {...l} />)}
+          {links.map((l) => l.club ? <ClubMenu key={l.to} /> : <NavItem key={l.to} {...l} />)}
         </nav>
 
         {/* Auth */}
@@ -110,7 +126,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="xl:hidden border-t border-outline-variant/40 bg-white">
           <nav className="px-6 py-4 flex flex-col gap-3">
-            {links.map((l) => (
+            {links.map((l) => l.club ? <ClubMenu key={l.to} mobile closeMenu={() => setMenuOpen(false)} /> : (
               <NavLink
                 key={l.to}
                 to={l.to}

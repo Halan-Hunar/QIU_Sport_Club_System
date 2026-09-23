@@ -10,6 +10,7 @@ import { createNewsRouter } from '../src/routes/news.js';
 const fixture = await createFixture();
 const app = express();
 app.use(cors({ origin: 'http://127.0.0.1:5174' }));
+app.use('/api/heads', createNewsRouter({ ...fixture, heads: true, log: console }));
 app.use('/api/news', createNewsRouter({ ...fixture, log: console }));
 app.use(express.json());
 const user = { id: ADMIN, email: 'editor@example.test', display_name: 'Halan Hunar', role: 'admin' };
@@ -31,6 +32,7 @@ fixture.files.set(path, { buffer: await readFile(resolve('../frontend/public/clu
 await fixture.db.from('club_news').insert({ title: 'A season to remember', author: 'QIU Sports Club', organiser: 'dyako', co_organiser: 'halan', article_date: '2026-09-21',
   cover_path: path, cover_alt: 'QIU Sports Club emblem', body: '## The final whistle\n\nA **remarkable finish** to the football cup.\n\n> Every match brought the club together.\n\n![Club emblem](/news-media/' + path + ')',
   excerpt: 'A remarkable finish to the football cup.', status: 'published', created_by: ADMIN, updated_by: ADMIN }).select('*');
+await fixture.db.from('club_heads').insert({ title: 'Example Club Head', major: 'Software Engineering', accent_color: '#864538', is_current: true, cover_path: null, cover_alt: '', body: '## Leading the club\n\nBringing students together through **sport**.\n\n> A place for every player.', excerpt: 'Bringing students together through sport.', status: 'published', created_by: ADMIN, updated_by: ADMIN }).select('*');
 app.listen(4173, '127.0.0.1', () => console.log('Fixture API: http://127.0.0.1:4173 (in-memory data only)'));
 const frontendRoot = resolve('../frontend');
 process.chdir(frontendRoot); // Tailwind resolves its configuration from cwd.

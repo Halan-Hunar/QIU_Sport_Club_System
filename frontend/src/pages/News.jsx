@@ -6,6 +6,7 @@ import NewsCard from '../components/NewsCard';
 
 export default function News() {
   const user = useAuthStore((s) => s.user);
+  const [sort, setSort] = useState('event_date:desc');
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -13,19 +14,27 @@ export default function News() {
   useEffect(() => {
     let active = true;
     setData(null); setError('');
-    const load = () => newsRequest(`?page=${page}`).then((result) => {
+    const load = () => newsRequest(`?page=${page}&sort=${sort.split(':')[0]}&direction=${sort.split(':')[1]}`).then((result) => {
       if (active) { setData(result); setError(''); }
     }).catch((e) => { if (active) { setData(null); setError(e.message); } });
     load();
     const timer = setInterval(load, 240000);
     return () => { active = false; clearInterval(timer); };
-  }, [page, attempt]);
+  }, [page, sort, attempt]);
   return <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-12">
     <header className="flex flex-wrap justify-between items-start gap-5 mb-8">
       <div><h1 className="text-headline-lg sm:text-display-lg">Club Events</h1>
         <p className="text-ink-variant mt-2">Events, match reports, and stories from QIU Sports Club.</p></div>
       {user?.role === 'admin' && <Link className="sc-btn-primary" to="/admin/events">Manage events</Link>}
     </header>
+    <label className="flex items-center gap-3 mb-6 text-sm">Sort by
+      <select className="sc-input !w-auto" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
+        <option value="event_date:desc">Event date (newest first)</option>
+        <option value="event_date:asc">Event date (oldest first)</option>
+        <option value="article_date:desc">Article date (newest first)</option>
+        <option value="article_date:asc">Article date (oldest first)</option>
+      </select>
+    </label>
     {error ? <div role="alert"><p>{error}</p><button className="sc-btn-secondary mt-4" onClick={() => setAttempt((n) => n + 1)}>Try again</button></div>
       : !data ? <p role="status">Loading articles…</p>
       : data.articles.length ? <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">{data.articles.map((article) => <NewsCard key={article.id} article={article} />)}</div>

@@ -20,6 +20,7 @@ const Declined = lazy(() => import('./pages/Declined'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 import ConsentBanner from './components/ConsentBanner';
 
+const Heads = lazy(() => import('./pages/Heads'));
 const News = lazy(() => import('./pages/News'));
 const NewsDetail = lazy(() => import('./pages/NewsDetail'));
 const NewsAdmin = lazy(() => import('./pages/NewsAdmin'));
@@ -47,6 +48,11 @@ function App() {
       <Suspense fallback={<p role="status" className="max-w-5xl mx-auto p-8">Loading page…</p>}>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/club/heads" element={<Heads key="public" />} />
+        <Route path="/club/heads/:id" element={<Heads key="detail" />} />
+        <Route path="/admin/heads" element={<ProtectedRoute adminOnly><Heads key="manage" manage /></ProtectedRoute>} />
+        <Route path="/admin/heads/new" element={<ProtectedRoute adminOnly><NewsEditor key="head-new" heads /></ProtectedRoute>} />
+        <Route path="/admin/heads/:id" element={<ProtectedRoute adminOnly><NewsEditor key="head-edit" heads /></ProtectedRoute>} />
         <Route path="/events" element={<News />} />
         <Route path="/events/:id" element={<NewsDetail />} />
         <Route path="/admin/events" element={<ProtectedRoute adminOnly><NewsAdmin /></ProtectedRoute>} />

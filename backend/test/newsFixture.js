@@ -9,6 +9,8 @@ export async function createFixture() {
     insert into public.users values ('${ADMIN}', 'admin');`);
   await pg.exec(await readFile(new URL('../../supabase/migrations/20260921181657_club_news.sql', import.meta.url), 'utf8'));
   await pg.exec(await readFile(new URL('../../supabase/migrations/20260922113555_event_organisers_and_display_names.sql', import.meta.url), 'utf8'));
+  await pg.exec(await readFile(new URL('../../supabase/migrations/20260923115929_club_heads_and_event_dates.sql', import.meta.url), 'utf8'));
+  await pg.exec(await readFile(new URL('../../supabase/migrations/20260923123624_club_head_number.sql', import.meta.url), 'utf8'));
   const files = new Map();
   const ident = (key) => { if (!/^[a-z_]+$/.test(key)) throw new Error('Unexpected test identifier'); return `"${key}"`; };
   const storage = { from: () => ({
@@ -17,13 +19,13 @@ export async function createFixture() {
       ? { path, signedUrl: `http://localhost:4173/test-media/${path}` } : { path, error: 'missing' }), error: null }),
   }) };
   const db = { storage, from(table) {
-    if (table !== 'club_news') throw new Error('Tests only access club_news');
+    if (!['club_news', 'club_heads'].includes(table)) throw new Error('Tests only access club_news');
     const filters = [], orders = [];
     let operation = 'select', input, low = 0, high = 100, single = false, columns = '*';
     const query = {
       select(value) { columns = value; return query; },
       eq(key, value) { filters.push([key, value]); return query; },
-      order(key, options = {}) { orders.push(`${ident(key)} ${options.ascending === false ? 'desc' : 'asc'}`); return query; },
+      order(key, options = {}) { orders.push(`${ident(key)} ${(options.ascending === false ? 'desc' : 'asc') + (options.nullsFirst === false ? ' nulls last' : '')}`); return query; },
       range(a, b) { low = a; high = b; return query; },
       insert(value) { operation = 'insert'; input = value; return query; },
       update(value) { operation = 'update'; input = value; return query; },
@@ -35,11 +37,11 @@ export async function createFixture() {
           const where = () => filters.length ? ` where ${filters.map(([key, value]) => `${ident(key)} = ${param(value)}`).join(' and ')}` : '';
           let sql;
           if (operation === 'insert') {
-            sql = `insert into club_news (${Object.keys(input).map(ident).join(',')}) values (${Object.values(input).map(param).join(',')}) returning to_jsonb(club_news) as row`;
+            sql = `insert into ${table} (${Object.keys(input).map(ident).join(',')}) values (${Object.values(input).map(param).join(',')}) returning to_jsonb(${table}) as row`;
           } else if (operation === 'update') {
-            sql = `update club_news set ${Object.entries(input).map(([key, value]) => `${ident(key)}=${param(value)}`).join(',')}${where()} returning to_jsonb(club_news) as row`;
+            sql = `update ${table} set ${Object.entries(input).map(([key, value]) => `${ident(key)}=${param(value)}`).join(',')}${where()} returning to_jsonb(${table}) as row`;
           } else {
-            sql = `select to_jsonb(t) as row from club_news t${where()}${orders.length ? ` order by ${orders.join(',')}` : ''}`;
+            sql = `select to_jsonb(t) as row from ${table} t${where()}${orders.length ? ` order by ${orders.join(',')}` : ''}`;
           }
           let rows = (await pg.query(sql, values)).rows.map((row) => row.row);
           const count = rows.length;
