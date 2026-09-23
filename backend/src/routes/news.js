@@ -24,13 +24,13 @@ export function createNewsRouter({ db, authenticate, authorize, log = console, h
   const summary = heads
   ? 'id,title,major,accent_color,is_current,is_founder,head_number,cover_path,cover_alt,excerpt,status,published_at,updated_at'
   : SUMMARY;
-  function headListing(query, options) {
+function headListing(query, options) {
   if (options.role === 'founder') {
     query = query.eq('is_founder', true);
   } else if (options.role === 'current') {
     query = query.eq('is_current', true);
   } else if (options.role === 'former') {
-    query = query.eq('is_current', false).eq('is_founder', false);
+    query = query.eq('is_current', false);
   }
 
   return query.order('head_number', {
