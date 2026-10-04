@@ -3,6 +3,9 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { publicReadCache } from './middleware/publicReadCache.js';
+import { asyncRouter } from './middleware/asyncRouter.js';
+import { createAnalyticsRouter } from './routes/analytics.js';
 import { logger } from './utils/logger.js';
 
 if (process.env.NODE_ENV === 'production' &&
@@ -15,10 +18,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Security Middleware ───────────────────────────────────────────────────────
+app.disable('x-powered-by');
+// Render has one trusted reverse-proxy hop. Never trust arbitrary forwarded chains.
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 app.use(helmet());
+const origins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((v) => v.trim()).filter(Boolean);
+if (origins.includes('*')) throw new Error('CORS_ORIGIN must contain exact frontend origins.');
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => callback(null, !origin || origins.includes(origin)),
   credentials: true,
 }));
 
@@ -42,7 +50,7 @@ const authLimiter = rateLimit({
 // ─── Body Parsing ──────────────────────────────────────────────────────────────
 const standardJson = express.json({ limit: '10kb' });
 // News applies its own bounded parsers after admin authorization (including images).
-app.use((req, res, next) => (req.path.startsWith('/api/news') || req.path.startsWith('/api/heads')) ? next() : standardJson(req, res, next));
+app.use((req, res, next) => (req.path.startsWith('/api/news') || req.path.startsWith('/api/heads') || req.path === '/api/analytics/collect') ? next() : standardJson(req, res, next));
 
 // ─── Request Logging ───────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
@@ -63,16 +71,18 @@ import { createNewsRouter } from './routes/news.js';
 import { supabaseAdmin } from './utils/supabase.js';
 import { requireAuth, requireAdmin } from './middleware/auth.js';
 
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/teams', teamRoutes);
-app.use('/api/players', playerRoutes);
-app.use('/api/tournaments', tournamentRoutes);
-app.use('/api/matches', matchRoutes);
-app.use('/api/match-events', matchEventRoutes);
-app.use('/api/awards', awardRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/heads', createNewsRouter({ db: supabaseAdmin, authenticate: requireAuth, authorize: requireAdmin, log: logger, heads: true }));
-app.use('/api/news', createNewsRouter({ db: supabaseAdmin, authenticate: requireAuth, authorize: requireAdmin, log: logger }));
+app.use(publicReadCache());
+app.use('/api/auth', authLimiter, asyncRouter(authRoutes));
+app.use('/api/teams', asyncRouter(teamRoutes));
+app.use('/api/players', asyncRouter(playerRoutes));
+app.use('/api/tournaments', asyncRouter(tournamentRoutes));
+app.use('/api/matches', asyncRouter(matchRoutes));
+app.use('/api/match-events', asyncRouter(matchEventRoutes));
+app.use('/api/awards', asyncRouter(awardRoutes));
+app.use('/api/stats', asyncRouter(statsRoutes));
+app.use('/api/analytics', asyncRouter(createAnalyticsRouter({ db: supabaseAdmin, authenticate: requireAuth, authorize: requireAdmin, origins, log: logger })));
+app.use('/api/heads', asyncRouter(createNewsRouter({ db: supabaseAdmin, authenticate: requireAuth, authorize: requireAdmin, log: logger, heads: true })));
+app.use('/api/news', asyncRouter(createNewsRouter({ db: supabaseAdmin, authenticate: requireAuth, authorize: requireAdmin, log: logger })));
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -89,9 +99,7 @@ app.use((err, _req, res, _next) => {
   logger.error(err.stack);
   // Never expose stack traces to the client
   res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message,
+    error: err.status === 413 ? 'Request too large' : err.status === 400 ? 'Invalid request' : 'Internal server error',
   });
 });
 
@@ -99,3 +107,13 @@ app.use((err, _req, res, _next) => {
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT} [${process.env.NODE_ENV}]`);
 });
+
+// Bounded retention. Also runs on startup after free-tier sleep/restarts.
+async function cleanupAnalytics() {
+  try {
+    const { error } = await supabaseAdmin.from('club_page_views').delete().lt('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString());
+    if (error) logger.warn(`Analytics retention cleanup unavailable: ${error.code}`);
+  } catch { logger.warn('Analytics retention cleanup unavailable'); }
+}
+cleanupAnalytics();
+setInterval(cleanupAnalytics, 86400000).unref();

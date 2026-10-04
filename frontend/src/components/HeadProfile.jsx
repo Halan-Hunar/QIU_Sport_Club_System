@@ -11,7 +11,7 @@ export function HeadAvatar({ profile }) {
 
 export function HeadStatus({ profile }) {
   return <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium text-ink-variant">
-    <span>{profile.is_current ? 'Current Head of Club' : 'Former Head of Club'}</span>
+    <span>{profile.is_founder ? 'Founder of Club' : profile.is_current ? 'Current Head of Club' : 'Former Head of Club'}</span>
     {profile.head_number != null && <span>{ordinal(profile.head_number)} Head of Sport Club</span>}
   </p>;
 }

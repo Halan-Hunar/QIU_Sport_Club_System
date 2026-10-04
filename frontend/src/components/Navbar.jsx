@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
+import ProfileMenu from './ProfileMenu';
 import { useAuthStore } from '../store/authStore';
 
 // Teams is now public (visitor-readable, non-clickable cards) so it lives in
@@ -96,15 +97,7 @@ export default function Navbar() {
 
         {/* Auth */}
         <div className="flex items-center gap-2">
-          {token && user ? (
-            <div className="hidden xl:flex items-center gap-2">
-              {user.role === 'admin' && (
-                <span className="sc-chip-primary">Admin</span>
-              )}
-              <span className="text-sm text-ink-variant max-w-32 truncate">{user.display_name || 'Club admin'}</span>
-              <button onClick={handleLogout} className="sc-btn-ghost">Logout</button>
-            </div>
-          ) : null}
+          {token && user && <ProfileMenu user={user} onLogout={handleLogout} />}
 
           {/* Mobile toggle */}
           <button
@@ -140,11 +133,7 @@ export default function Navbar() {
                 {l.label}
               </NavLink>
             ))}
-            {token && user && (
-              <button onClick={handleLogout} className="sc-btn-ghost self-start">
-                Logout ({user.display_name || 'Club admin'})
-              </button>
-            )}
+
           </nav>
         </div>
       )}

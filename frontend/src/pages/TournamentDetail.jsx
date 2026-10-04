@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { useTournamentStore } from '../store/tournamentStore';
@@ -13,6 +13,7 @@ import { Trophy, Plus, X, Loader2, UserPlus, Share2, Flag, CheckCircle2 } from '
 import Bracket from '../components/Bracket';
 import StandingsTable from '../components/StandingsTable';
 import MatchCard from '../components/MatchCard';
+import { useTrackView } from '../components/AnalyticsTracker';
 import MatchDetailModal from '../components/MatchDetailModal';
 const ExportModal = lazy(() => import('../components/ExportModal'));
 import GroupDrawModal from '../components/GroupDrawModal';
@@ -347,6 +348,8 @@ export default function TournamentDetail() {
     fetchTournamentById, unregisterTeam, unregisterPlayer, deleteTournament, endTournament,
   } = useTournamentStore();
 
+  useTrackView(current?.tournament?.id === id ? `/tournaments/${id}` : null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [openMatch, setOpenMatch] = useState(null);
@@ -360,6 +363,11 @@ export default function TournamentDetail() {
     fetchMatches, fetchStandings, generateBracket, advanceGroups,
     subscribeToMatches, unsubscribe,
   } = useMatchStore();
+
+  useEffect(() => {
+    const matchId = searchParams.get('match');
+    if (matchId) { const found = matches.find((m) => m.id === matchId && m.tournament_id === id); if (found) setOpenMatch(found); }
+  }, [searchParams, matches, id]);
 
   useEffect(() => { fetchTournamentById(id); }, [id, fetchTournamentById]);
 
@@ -875,7 +883,7 @@ export default function TournamentDetail() {
       )}
       <MatchDetailModal
         open={!!openMatch}
-        onClose={() => setOpenMatch(null)}
+        onClose={() => { setOpenMatch(null); if (searchParams.has('match')) { const next = new URLSearchParams(searchParams); next.delete('match'); setSearchParams(next, { replace: true }); } }}
         match={openMatch}
         isAdmin={isAdmin}
       />

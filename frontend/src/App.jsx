@@ -18,6 +18,8 @@ const PrivacyPolicy = lazy(() => import('./pages/PolicyPage'));
 const TermsOfService = lazy(() => import('./pages/TermsPage'));
 const Declined = lazy(() => import('./pages/Declined'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+import AnalyticsTracker from './components/AnalyticsTracker';
+const Analytics = lazy(() => import('./pages/Analytics'));
 import ConsentBanner from './components/ConsentBanner';
 
 const Heads = lazy(() => import('./pages/Heads'));
@@ -45,6 +47,7 @@ function App() {
 
   return (
     <Layout>
+      <AnalyticsTracker />
       <Suspense fallback={<p role="status" className="max-w-5xl mx-auto p-8">Loading page…</p>}>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -91,6 +94,7 @@ function App() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/declined" element={<Declined />} />
 
+        <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Analytics /></ProtectedRoute>} />
         <Route path="/admin" element={
           <ProtectedRoute adminOnly>
             <AdminDashboard />

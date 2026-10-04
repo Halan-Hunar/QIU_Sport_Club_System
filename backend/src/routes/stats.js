@@ -1,3 +1,4 @@
+import { readAllRows } from '../utils/readAllRows.js';
 import { Router } from 'express';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
@@ -56,19 +57,19 @@ router.get('/', async (_req, res) => {
     [teamsRes, playersRes, tournamentsRes, matchesRes,
          goalsTotalRes, activeTournRes, liveMatchesRes]
   ] = await Promise.all([
-    supabaseAdmin
+    readAllRows(supabaseAdmin
     .from('match_events')
     .select(`
       player_id,
       player:players(id, name, jersey_number, team_id),
       team:teams(id, name, primary_color, secondary_color)
     `)
-    .eq('event_type', 'goal'),
-    supabaseAdmin
+    .eq('event_type', 'goal')),
+    readAllRows(supabaseAdmin
     .from('matches')
     .select('winner_id, winner:teams!matches_winner_id_fkey(id, name, primary_color)')
     .eq('status', 'completed')
-    .not('winner_id', 'is', null),
+    .not('winner_id', 'is', null)),
     supabaseAdmin
     .from('matches')
     .select(`
@@ -249,7 +250,7 @@ router.get('/tournament/:id', async (req, res) => {
 
   // ── Summary (total goals, biggest win, clean sheet count) ──
   {
-    const { data: completed } = await supabaseAdmin
+    const { data: completed } = await readAllRows(supabaseAdmin
       .from('matches')
       .select(`
         home_score, away_score,
@@ -259,7 +260,7 @@ router.get('/tournament/:id', async (req, res) => {
         away_player:players!matches_away_player_id_fkey(id, name)
       `)
       .eq('tournament_id', tournamentId)
-      .eq('status', 'completed');
+      .eq('status', 'completed'));
 
     let totalGoals = 0;
     let cleanSheets = 0;
@@ -325,12 +326,12 @@ router.get('/tournament/:id', async (req, res) => {
   // drawn, lost, goals for/against and clean sheets. Only computed for team
   // champions (individual-sport winners don't have a goals-based profile).
   if (championTeamId) {
-    const { data: cm } = await supabaseAdmin
+    const { data: cm } = await readAllRows(supabaseAdmin
       .from('matches')
       .select('home_team_id, away_team_id, home_score, away_score, winner_id')
       .eq('tournament_id', tournamentId)
       .eq('status', 'completed')
-      .or(`home_team_id.eq.${championTeamId},away_team_id.eq.${championTeamId}`);
+      .or(`home_team_id.eq.${championTeamId},away_team_id.eq.${championTeamId}`));
 
     let played = 0, won = 0, drawn = 0, lost = 0, gf = 0, ga = 0, cs = 0;
     for (const m of cm ?? []) {
@@ -343,11 +344,11 @@ router.get('/tournament/:id', async (req, res) => {
       if (agGoals === 0) cs += 1;
       // winner_id is authoritative; fall back to score comparison.
       const isWin = m.winner_id ? m.winner_id === championTeamId : forGoals > agGoals;
-      const isLoss = m.winner_id ? m.winner_id !== championTeamId && forGoals !== agGoals
+      const isLoss = m.winner_id ? m.winner_id !== championTeamId
                                  : forGoals < agGoals;
-      if (forGoals === agGoals) drawn += 1;
-      else if (isWin) won += 1;
+      if (isWin) won += 1;
       else if (isLoss) lost += 1;
+      else drawn += 1;
     }
 
     out.champion_stats = {
@@ -364,13 +365,13 @@ router.get('/tournament/:id', async (req, res) => {
 
   // ── Top scorers ────────────────────────────────────────────
   if (applicable.includes('top_scorer')) {
-    const { data: matchIds } = await supabaseAdmin
+    const { data: matchIds } = await readAllRows(supabaseAdmin
       .from('matches')
       .select('id')
-      .eq('tournament_id', tournamentId);
+      .eq('tournament_id', tournamentId));
     const ids = (matchIds ?? []).map((m) => m.id);
     if (ids.length > 0) {
-      const { data: goals } = await supabaseAdmin
+      const { data: goals } = await readAllRows(supabaseAdmin
         .from('match_events')
         .select(`
           player_id,
@@ -378,7 +379,7 @@ router.get('/tournament/:id', async (req, res) => {
           team:teams(id, name, primary_color)
         `)
         .in('match_id', ids)
-        .eq('event_type', 'goal');
+        .eq('event_type', 'goal'));
       const map = new Map();
       for (const g of goals ?? []) {
         if (!g.player_id) continue;
@@ -400,7 +401,7 @@ router.get('/tournament/:id', async (req, res) => {
 
   // ── Clean sheets ───────────────────────────────────────────
   if (applicable.includes('clean_sheet')) {
-    const { data: matches } = await supabaseAdmin
+    const { data: matches } = await readAllRows(supabaseAdmin
       .from('matches')
       .select(`
         home_team_id, away_team_id, home_score, away_score,
@@ -408,7 +409,7 @@ router.get('/tournament/:id', async (req, res) => {
         away_team:teams!matches_away_team_id_fkey(id, name, primary_color)
       `)
       .eq('tournament_id', tournamentId)
-      .eq('status', 'completed');
+      .eq('status', 'completed'));
     const map = new Map();
     for (const m of matches ?? []) {
       if (m.away_score === 0 && m.home_team) {
@@ -438,7 +439,7 @@ router.get('/tournament/:id', async (req, res) => {
   // ── Most wins ──────────────────────────────────────────────
   if (applicable.includes('most_wins')) {
     if (tournament.is_individual) {
-      const { data: m } = await supabaseAdmin
+      const { data: m } = await readAllRows(supabaseAdmin
         .from('matches')
         .select(`
           winner_player_id,
@@ -446,7 +447,7 @@ router.get('/tournament/:id', async (req, res) => {
         `)
         .eq('tournament_id', tournamentId)
         .eq('status', 'completed')
-        .not('winner_player_id', 'is', null);
+        .not('winner_player_id', 'is', null));
       const map = new Map();
       for (const row of m ?? []) {
         const id = row.winner_player_id;
@@ -462,7 +463,7 @@ router.get('/tournament/:id', async (req, res) => {
       }
       out.most_wins = [...map.values()].sort((a, b) => b.win_count - a.win_count);
     } else {
-      const { data: m } = await supabaseAdmin
+      const { data: m } = await readAllRows(supabaseAdmin
         .from('matches')
         .select(`
           winner_id,
@@ -470,7 +471,7 @@ router.get('/tournament/:id', async (req, res) => {
         `)
         .eq('tournament_id', tournamentId)
         .eq('status', 'completed')
-        .not('winner_id', 'is', null);
+        .not('winner_id', 'is', null));
       const map = new Map();
       for (const row of m ?? []) {
         const id = row.winner_id;

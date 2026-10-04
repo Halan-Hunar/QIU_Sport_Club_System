@@ -114,7 +114,7 @@ router.get('/', async (_req, res) => {
 });
 
 // ─── GET /api/teams/:id ───────────────────────────────────────
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   const { data: team, error: teamErr } = await supabaseAdmin
     .from('teams')
     .select('*')

@@ -7,7 +7,7 @@ import EventBodyEditor from '../components/EventBodyEditor';
 import { ORGANISERS, CO_ORGANISERS } from '../constants/organisers';
 
 function emptyArticle(heads = false) {
-  if (heads) return { title: '', major: '', accent_color: '#00668a', is_current: false, head_number: null, cover_path: null, cover_alt: '', body: '', status: 'draft' };
+  if (heads) return { title: '', major: '', accent_color: '#00668a', is_current: false, is_founder: false, head_number: null, cover_path: null, cover_alt: '', body: '', status: 'draft' };
   const now = new Date();
   return { title: '', author: '', article_date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     event_date: null, cover_path: null, cover_alt: '', body: '', status: 'draft', organiser: null, co_organiser: null };
@@ -114,7 +114,21 @@ export default function NewsEditor({ heads = false }) {
           <label><span className="sc-label">Major</span><input className="sc-input" maxLength={120} value={form.major} onChange={(e) => change('major', e.target.value)} /></label>
           <label><span className="sc-label">Profile accent</span><input aria-label="Profile accent" type="color" className="w-20 h-11 cursor-pointer" value={form.accent_color} onChange={(e) => change('accent_color', e.target.value)} /></label>
           <label><span className="sc-label">Head number (optional)</span><input type="number" min="1" max="999" step="1" className="sc-input" value={form.head_number ?? ''} onChange={(e) => change('head_number', e.target.value === '' ? null : Number(e.target.value))} placeholder="For example, 3" /><span className="text-xs text-ink-variant">Shown as 3rd Head of Sport Club. Leave blank to hide.</span></label>
-          <label><span className="sc-label">Club role</span><select className="sc-input" value={String(form.is_current)} onChange={(e) => change('is_current', e.target.value === 'true')}><option value="false">Former head</option><option value="true">Current head</option></select></label>
+          <label>
+          <span className="sc-label">Club role</span>
+          <select
+            className="sc-input"
+            value={form.is_founder ? 'founder' : form.is_current ? 'current' : 'former'}
+            onChange={(e) => {
+              change('is_founder', e.target.value === 'founder');
+              change('is_current', e.target.value === 'current');
+            }}
+          >
+            <option value="founder">Founder of Club</option>
+            <option value="former">Former head</option>
+            <option value="current">Current head</option>
+          </select>
+        </label>  
         </div> : <div className="grid sm:grid-cols-2 gap-5">
           <label><span className="sc-label">Head of Club</span><select className="sc-input" value={form.organiser || ''} onChange={(e) => change('organiser', e.target.value || null)}>
             <option value="">Select the head</option>{ORGANISERS.map((person) => <option key={person.id} value={person.id}>{person.label}</option>)}

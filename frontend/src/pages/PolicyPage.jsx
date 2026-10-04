@@ -1,160 +1,20 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
 
-function Section({ title, children }) {
-  return (
-    <section>
-      <h2 className="font-display text-headline-md text-ink mb-2">{title}</h2>
-      <div className="text-ink-variant leading-relaxed space-y-3">{children}</div>
-    </section>
-  );
-}
-
-const Divider = () => (
-  <div className="border-t border-outline-variant/30 my-6" aria-hidden />
-);
-
-export default function PrivacyPolicy() {
-  return (
-    <motion.div
-      className="max-w-[1280px] mx-auto px-6 py-12"
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1.5 text-sm text-ink-variant
-                   hover:text-primary transition-colors mb-6"
-      >
-        <ArrowLeft size={16} strokeWidth={2} aria-hidden />
-        Back
-      </Link>
-
-      <header className="mb-8">
-        <h1 className="font-display text-display-lg text-ink leading-tight">
-          Privacy Policy
-        </h1>
-        <p className="text-sm text-ink-variant mt-2">Last updated: June 2026</p>
-      </header>
-
-      <Section title="1. Introduction">
-        <p>
-          QIU Sports Club is a sports tournament management platform that allows visitors to
-          browse tournaments, teams, players, match results, and statistics. This Privacy
-          Policy describes what limited information the platform processes, how it is used,
-          and the choices available to users. By using the platform, you acknowledge the
-          practices described below.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="2. Information We Collect">
-        <p>
-          <strong className="text-ink">Visitors.</strong> No personal data is collected from
-          visitors. No account is required to view tournaments, matches, standings, or
-          player information.
-        </p>
-        <p>
-          <strong className="text-ink">Administrators.</strong> Administrators sign in using
-          an email address and password. Authentication credentials are stored and processed
-          securely by Supabase Auth, our third-party authentication provider. We do not
-          store passwords directly on our own servers.
-        </p>
-        <p>
-          <strong className="text-ink">Automatically collected.</strong> Like most web
-          services, we maintain standard server logs that include information such as IP
-          addresses, browser type, request paths, and timestamps. These logs exist solely
-          to operate the platform and to detect or investigate security incidents. They
-          are not sold, traded, or shared with third parties for marketing purposes.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="3. How We Use Information">
-        <p>
-          The limited information we process is used only to operate the platform:
-          authenticating administrators, displaying tournament and match data to visitors,
-          and securing the service against abuse. We do not run advertising, build user
-          profiles, perform behavioural tracking, or share information with marketing
-          partners.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="4. Cookies & Local Storage">
-        <p>
-          The platform uses browser <code>localStorage</code> to maintain administrator
-          login sessions between visits, and to remember a visitor's acknowledgement of
-          this policy. We do not use tracking cookies, advertising cookies, analytics
-          cookies, or any third-party tags for behavioural targeting.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="5. Data Retention">
-        <p>
-          Administrator accounts and tournament data are retained for the duration of the
-          platform's operation, so that historical results, standings, and statistics
-          remain accessible. Visitors leave no persistent data on the platform beyond the
-          consent acknowledgement stored locally in their own browser.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="6. Third-Party Services">
-        <p>
-          We use Supabase (
-          <a
-            href="https://supabase.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline"
-          >
-            supabase.com
-          </a>
-          ) to provide our database and authentication infrastructure. Data processed by
-          Supabase on our behalf is also subject to their privacy policy and security
-          practices. We do not transmit personal information to any other third parties.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="7. Your Rights">
-        <p>
-          Administrators may request deletion of their account at any time by contacting
-          the platform administrator directly. Visitors, having shared no personal data,
-          have nothing to request — clearing browser storage removes the consent
-          acknowledgement.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="8. Changes to This Policy">
-        <p>
-          We may update this Privacy Policy from time to time to reflect changes in our
-          practices or applicable requirements. Continued use of the platform after such
-          updates constitutes acceptance of the revised policy. Material changes will be
-          reflected in the &ldquo;Last updated&rdquo; date at the top of this page.
-        </p>
-      </Section>
-
-      <Divider />
-
-      <Section title="9. Contact">
-        <p>
-          For any questions, concerns, or requests relating to this Privacy Policy or your
-          information, please contact the platform administrator directly.
-        </p>
-      </Section>
-    </motion.div>
-  );
+export default function LegalPage() {
+  return <div className="max-w-4xl mx-auto px-6 py-12">
+    <Link to="/" className="text-primary underline">Back to the club</Link>
+    <header className="my-8"><h1 className="font-display text-3xl sm:text-5xl text-ink">Privacy Policy</h1><p className="text-sm text-ink-variant mt-3">Last updated: 28 September 2026</p></header>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">1. About this site</h2><p className="text-ink-variant leading-relaxed">QIU Sports Club is an unofficial student-run website for club news, profiles, tournaments, and results. It is not an official university service. This notice explains the information processed by the site.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">2. Club information and accounts</h2><p className="text-ink-variant leading-relaxed">Published articles, club-head profiles, team names, participant names, photos, fixtures, results, and sporting statistics may be publicly visible. Administrators provide this content and should have permission to publish it. Account emails, display names, roles, and login credentials support authorised access. Supabase Auth processes passwords; the application does not store plaintext passwords. Internal player notes are restricted to administrators.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">3. Optional audience analytics</h2><p className="text-ink-variant leading-relaxed">Analytics starts only after you choose Allow analytics. We record the public page or article identifier, a random browser-tab visit ID, the time, a broad device category, and a referral category such as Instagram or Google. Article measurements include estimated active reading time and scroll depth. Opening match details is counted separately. We do not store raw IP addresses, full referral URLs, search/query strings, or raw browser identifiers in the analytics table. We do not use advertising trackers or sell analytics information.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">4. Your analytics choice</h2><p className="text-ink-variant leading-relaxed">Declining analytics does not prevent access to public content. Use Privacy settings in the footer to allow or decline later. Withdrawing consent stops future collection and clears the visit ID from this browser tab; it does not automatically erase earlier records. We respect supported Do Not Track and Global Privacy Control signals. Signed-in accounts are excluded from this audience tracking. Blocking browser storage may disable analytics and login persistence.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">5. Browser storage</h2><p className="text-ink-variant leading-relaxed">Local storage remembers the analytics choice and, for signed-in accounts, authentication tokens. Optional analytics uses session storage for a random visit ID and broad referral category. A visit expires after 30 minutes of inactivity or when its browser tab session ends. It is not intended to identify a person across visits. Older policy acknowledgement preferences may remain until browser storage is cleared.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">6. Purposes and access</h2><p className="text-ink-variant leading-relaxed">We use club data to publish stories and run sporting competitions, account information to control access, and optional analytics to understand popular content and improve the website. Analytics reports are available only to authorised administrators. Our hosting providers may process IP addresses, request information, and operational logs for delivery, reliability, and security, independently of the optional analytics table.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">7. Retention</h2><p className="text-ink-variant leading-relaxed">Analytics records are retained for a rolling 180 days. The backend removes older records at startup and daily while it runs; if it is offline, cleanup resumes when it restarts. Historical club and tournament records may remain for the lifetime of the site. Account data is retained while needed to operate accounts. Provider logs and backups follow the relevant provider settings and retention practices and may outlast removal from the active database.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">8. Service providers</h2><p className="text-ink-variant leading-relaxed">Supabase provides database, authentication, realtime, and media storage services. Render hosts the API and Vercel hosts the website. Google Fonts supplies typefaces. Requests to these services disclose connection information needed to deliver them, and processing may occur outside Iraq. External links, including Instagram, have their own privacy practices.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">9. Requests, corrections, and publication concerns</h2><p className="text-ink-variant leading-relaxed">Contact the club administrators to request correction or removal of your account, participant information, photo, or published content, or to ask about analytics records. Because analytics uses random visit IDs rather than names, it may not be possible to associate a record with you without additional information. We consider requests subject to applicable requirements and legitimate historical record needs. Please avoid sending passwords or other sensitive credentials.</p></section>
+    <section className="py-6 border-t border-outline-variant/40"><h2 className="font-display text-xl text-ink mb-3">10. Changes and contact</h2><p className="text-ink-variant leading-relaxed">We update this notice when the service or data practices change. Material changes to optional analytics may require a new choice; continued browsing alone is not consent to optional analytics. Contact the club through its Instagram account linked in the footer or the administrator at halangame4@gmail.com.</p></section>
+    <button className="sc-btn-primary mt-6" onClick={() => window.dispatchEvent(new Event('qiu-privacy-settings'))}>Change analytics choice</button>
+    <p className="mt-8"><Link className="text-primary underline" to="/terms">Terms and Conditions</Link></p>
+  </div>;
 }

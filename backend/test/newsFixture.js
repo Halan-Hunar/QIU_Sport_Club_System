@@ -11,6 +11,7 @@ export async function createFixture() {
   await pg.exec(await readFile(new URL('../../supabase/migrations/20260922113555_event_organisers_and_display_names.sql', import.meta.url), 'utf8'));
   await pg.exec(await readFile(new URL('../../supabase/migrations/20260923115929_club_heads_and_event_dates.sql', import.meta.url), 'utf8'));
   await pg.exec(await readFile(new URL('../../supabase/migrations/20260923123624_club_head_number.sql', import.meta.url), 'utf8'));
+  await pg.exec(await readFile(new URL('../../supabase/migrations/20260928082727_club_head_founder_flag.sql', import.meta.url), 'utf8'));
   const files = new Map();
   const ident = (key) => { if (!/^[a-z_]+$/.test(key)) throw new Error('Unexpected test identifier'); return `"${key}"`; };
   const storage = { from: () => ({
