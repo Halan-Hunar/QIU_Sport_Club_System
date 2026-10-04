@@ -12,7 +12,7 @@ export default function NewsArticle({ article }) {
       </header>
       {article.cover_url && <img src={article.cover_url} alt={article.title || ''}
         className="w-full max-w-3xl mx-auto max-h-[432px] aspect-[16/9] object-cover rounded-md" fetchPriority="high" />}
-      <ArticleBody body={article.body} media={article.media} />
+      <div data-analytics-article><ArticleBody body={article.body} media={article.media} /></div>
     </article>
   );
 }

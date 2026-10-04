@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { newsRequest } from '../lib/news';
+import { useTrackView } from '../components/AnalyticsTracker';
 import NewsArticle from '../components/NewsArticle';
 
 export default function NewsDetail() {
   const { id } = useParams();
   const [article, setArticle] = useState(null);
   const [error, setError] = useState('');
+  useTrackView(article?.id === id ? `/events/${id}` : null, true);
   useEffect(() => {
     let active = true;
     setArticle(null); setError('');

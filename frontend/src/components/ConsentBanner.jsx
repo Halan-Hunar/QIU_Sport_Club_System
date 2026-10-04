@@ -1,80 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { consentChoice, setAnalyticsConsent, CONSENT_EVENT } from '../lib/analytics';
 
 export default function ConsentBanner() {
   const user = useAuthStore((s) => s.user);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [visible, setVisible] = useState(false);
-
+  const { pathname } = useLocation();
+  const [visible, setVisible] = useState(() => !consentChoice());
   useEffect(() => {
-    if (localStorage.getItem('consent') === 'accepted') {
-      setVisible(false);
-      return;
-    }
-    setVisible(true);
+    const open = () => setVisible(true);
+    const update = () => setVisible(!consentChoice());
+    window.addEventListener('qiu-privacy-settings', open);
+    window.addEventListener(CONSENT_EVENT, update);
+    window.addEventListener('storage', update);
+    return () => { window.removeEventListener('qiu-privacy-settings', open); window.removeEventListener(CONSENT_EVENT, update); window.removeEventListener('storage', update); };
   }, []);
-
-  if (user) return null;
-  if (location.pathname === '/declined' || location.pathname === '/login') return null;
-
-  const accept = () => {
-    localStorage.setItem('consent', 'accepted');
-    setVisible(false);
-  };
-
-  const decline = () => {
-    setVisible(false);
-    navigate('/declined', { replace: true });
-  };
-
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          transition={{ duration: 0.3, delay: 1 }}
-          className="fixed bottom-0 left-0 right-0 z-50 bg-white
-                     border-t border-outline-variant/40 shadow-lg"
-          role="region"
-          aria-label="Consent notice"
-        >
-          <div className="max-w-[1280px] mx-auto px-6 py-4
-                          flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <p className="text-sm text-ink-variant leading-relaxed max-w-3xl">
-              By continuing to use QIU Sports Club, you agree to our{' '}
-              <Link to="/privacy" className="text-primary underline">
-                Privacy Policy
-              </Link>{' '}
-              and{' '}
-              <Link to="/terms" className="text-primary underline">
-                Terms of Service
-              </Link>
-              , and acknowledge that all tournament data is publicly accessible.
-            </p>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={decline}
-                className="sc-btn-secondary !py-2 !px-4"
-              >
-                Decline
-              </button>
-              <button
-                type="button"
-                onClick={accept}
-                className="sc-btn-primary !py-2 !px-4"
-              >
-                I Agree
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+  if (!visible || user || pathname === '/login') return null;
+  const choose = (value) => { setAnalyticsConsent(value); setVisible(false); };
+  return <aside className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-outline-variant shadow-lg" aria-label="Optional analytics">
+    <div className="max-w-[1280px] mx-auto p-5 flex flex-col md:flex-row md:items-center gap-5 justify-between">
+      <div className="max-w-2xl"><h2 className="font-semibold text-ink">Help us understand what the club enjoys</h2>
+        <p className="text-sm text-ink-variant mt-1">Allow optional visit counts and reading engagement? You can browse normally if you decline, and change your choice in Privacy settings. <Link to="/privacy" className="underline text-primary">Privacy policy</Link></p></div>
+      <div className="flex flex-wrap gap-3 shrink-0"><button className="sc-btn-secondary" onClick={() => choose('denied')}>Decline analytics</button><button className="sc-btn-primary" onClick={() => choose('granted')}>Allow analytics</button></div>
+    </div>
+  </aside>;
 }

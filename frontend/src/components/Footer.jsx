@@ -22,6 +22,7 @@ export default function Footer() {
         </div>
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-variant">
           <a href="https://www.instagram.com/qiu_sportsclub/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg>Follow us on Instagram</a>
+          <button type="button" className="hover:text-primary transition-colors" onClick={() => window.dispatchEvent(new Event('qiu-privacy-settings'))}>Privacy settings</button>
           <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
           <Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
         </nav>

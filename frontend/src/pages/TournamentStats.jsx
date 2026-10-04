@@ -1,3 +1,4 @@
+import { useTrackView } from '../components/AnalyticsTracker';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -179,6 +180,7 @@ export default function TournamentStats() {
   useEffect(() => { fetchStats(id); }, [id, fetchStats]);
 
   const t = data?.tournament;
+  useTrackView(t?.id === id ? `/tournaments/${id}/stats` : null);
   const applicable = data?.applicable ?? [];
   const summary = data?.summary ?? {};
 

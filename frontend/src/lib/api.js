@@ -15,12 +15,12 @@ const API = import.meta.env.VITE_API_URL;
 
 function buildHeaders(init) {
   const token = localStorage.getItem('token');
-  const headers = { ...(init.headers || {}) };
-  if (token && !headers.Authorization) {
-    headers.Authorization = `Bearer ${token}`;
+  const headers = Object.fromEntries(new Headers(init.headers || {}).entries());
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
   }
-  if (init.body && typeof init.body === 'string' && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
+  if (init.body && typeof init.body === 'string' && !headers['content-type']) {
+    headers['content-type'] = 'application/json';
   }
   return headers;
 }
@@ -37,12 +37,14 @@ async function refreshOnce() {
 }
 
 export async function apiFetch(path, init = {}) {
-  const url = path.startsWith('http') ? path : `${API}${path}`;
+  const apiOrigin = new URL(API || window.location.origin, window.location.origin).origin;
+  const url = new URL(path.startsWith('http') ? path : `${API || ''}${path}`, window.location.origin);
+  if (url.origin !== apiOrigin) throw new Error('Refusing to send credentials outside the API origin.');
 
   let res = await fetch(url, { ...init, headers: buildHeaders(init) });
 
   // Don't bother trying to refresh for the auth endpoints themselves.
-  const isAuthEndpoint = url.includes('/api/auth/');
+  const isAuthEndpoint = url.pathname.startsWith('/api/auth/');
 
   if (res.status === 401 && !isAuthEndpoint && localStorage.getItem('refresh_token')) {
     const refreshed = await refreshOnce();

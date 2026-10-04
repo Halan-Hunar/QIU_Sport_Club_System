@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTrackView } from './AnalyticsTracker';
 import Modal from './Modal';
 import MatchEventLog from './MatchEventLog';
 import LogEventModal from './LogEventModal';
@@ -127,6 +128,7 @@ function useLiveMatch(matchProp) {
 
 export default function MatchDetailModal({ open, onClose, match: matchProp, isAdmin }) {
   const match = useLiveMatch(matchProp);
+  useTrackView(open && match?.id ? `/matches/${match.id}` : null);
   const [logOpen, setLogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const deleteEvent = useEventStore((s) => s.deleteEvent);

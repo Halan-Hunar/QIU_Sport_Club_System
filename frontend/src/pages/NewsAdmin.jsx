@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 import { newsRequest, formatNewsDate } from '../lib/news';
 
 export default function NewsAdmin() {
   const [data, setData] = useState(null);
+  const [views, setViews] = useState(null);
+  const [viewsFailed, setViewsFailed] = useState(false);
+  useEffect(() => {
+    let active = true; setViews(null); setViewsFailed(false);
+    if (data?.articles.length) apiFetch(`/api/analytics/articles?ids=${data.articles.map((a) => a.id).join(',')}`)
+      .then(async (res) => { if (!res.ok) throw new Error(); return res.json(); })
+      .then((result) => { if (active) setViews(result.views); }).catch(() => { if (active) setViewsFailed(true); });
+    return () => { active = false; };
+  }, [data]);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
@@ -26,6 +36,7 @@ export default function NewsAdmin() {
         className="sc-card p-5 flex flex-wrap justify-between items-center gap-4 hover:border-primary">
         <div className="min-w-0"><h2 className="text-headline-md break-words">{article.title}</h2>
           <p className="text-sm text-ink-variant mt-1">{article.author || 'No author yet'} · {formatNewsDate(article.article_date)}</p></div>
+        <span className="text-sm text-ink-variant">{views ? `${Number(views[article.id] || 0).toLocaleString()} views · last 180 days` : viewsFailed ? 'Views unavailable' : 'Loading views…'}</span>
         <span className={article.status === 'published' ? 'sc-chip-primary' : 'sc-chip-muted'}>{article.status}</span>
       </Link>)}</div>}
     {data && data.total > 12 && <nav aria-label="Article pages" className="flex gap-4 items-center mt-6">
