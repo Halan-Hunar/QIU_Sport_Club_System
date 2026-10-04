@@ -42,10 +42,10 @@ const sendValidationError = (res, parsed) =>
 // Supports filters:
 //   ?team_id=<uuid>   — only that team's roster
 //   ?standalone=true  — only players whose team_id is null (individual sport pool)
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   let q = supabaseAdmin
     .from('players')
-    .select('id, name, jersey_number, position, photo_url, notes, sports, team_id, created_at, team:teams(id, name, primary_color, secondary_color)')
+    .select(`id, name, jersey_number, position, photo_url, ${req.user.role === 'admin' ? 'notes,' : ''} sports, team_id, created_at, team:teams(id, name, primary_color, secondary_color)`)
     .is('deleted_at', null)
     .order('name', { ascending: true });
 
@@ -70,10 +70,10 @@ router.get('/', async (req, res) => {
 
 // ─── GET /api/players/:id ─────────────────────────────────────
 // Player + aggregate stats (tournaments played, goals scored).
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   const { data: player, error: pErr } = await supabaseAdmin
     .from('players')
-    .select('id, name, jersey_number, position, photo_url, notes, sports, team_id, created_at, team:teams(id, name, primary_color, secondary_color)')
+    .select(`id, name, jersey_number, position, photo_url, ${req.user.role === 'admin' ? 'notes,' : ''} sports, team_id, created_at, team:teams(id, name, primary_color, secondary_color)`)
     .eq('id', req.params.id)
     .is('deleted_at', null)
     .single();
@@ -117,7 +117,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
   const { data, error } = await supabaseAdmin
     .from('players')
     .insert(insertRow)
-    .select('id, name, jersey_number, position, photo_url, notes, sports, team_id, created_at')
+    .select('id, name, jersey_number, position, photo_url, sports, team_id, created_at')
     .single();
 
   if (error) {

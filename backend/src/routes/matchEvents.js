@@ -137,56 +137,16 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 
   if (error) {
     logger.error(`Log event failed: ${error.message}`);
+    if (error.code === '23514') return res.status(400).json({ error: 'Check the event team and player, and reopen completed matches before editing events.' });
     if (error.code === '23503') {
       return res.status(404).json({ error: 'Match, team, or player not found' });
     }
     return res.status(500).json({ error: 'Failed to log event' });
   }
 
-  // If it's a goal, bump the scoring side's score on the match. We return the
-  // resulting scores so the client can set them absolutely (not increment
-  // again) — that keeps the scoreboard correct even when a realtime update for
-  // the same row also arrives, instead of double-counting the goal.
-  let matchScore = null;
-  if (parsed.data.event_type === 'goal' || parsed.data.event_type === 'own_goal') {
-    const { data: match } = await supabaseAdmin
-      .from('matches')
-      .select('id, home_team_id, away_team_id, home_score, away_score')
-      .eq('id', parsed.data.match_id)
-      .single();
-
-    if (match && parsed.data.team_id) {
-      // For 'goal', the scoring team's score goes up.
-      // For 'own_goal', the OPPONENT scores — the team_id field stores the
-      // team credited with the own-goal, so the *other* team gets the point.
-      let scoringTeam = parsed.data.team_id;
-      if (parsed.data.event_type === 'own_goal') {
-        scoringTeam = parsed.data.team_id === match.home_team_id
-          ? match.away_team_id
-          : match.home_team_id;
-      }
-      const upd = scoringTeam === match.home_team_id
-        ? { home_score: (match.home_score ?? 0) + 1 }
-        : scoringTeam === match.away_team_id
-          ? { away_score: (match.away_score ?? 0) + 1 }
-          : null;
-      if (upd) {
-        const { data: updated } = await supabaseAdmin
-          .from('matches')
-          .update(upd)
-          .eq('id', match.id)
-          .select('id, home_score, away_score')
-          .single();
-        matchScore = updated ?? {
-          id: match.id,
-          home_score: upd.home_score ?? match.home_score,
-          away_score: upd.away_score ?? match.away_score,
-        };
-      } else {
-        matchScore = { id: match.id, home_score: match.home_score, away_score: match.away_score };
-      }
-    }
-  }
+  // The database trigger updates the score in the same transaction as the event.
+  const { data: matchScore } = await supabaseAdmin.from('matches')
+    .select('id, home_score, away_score').eq('id', parsed.data.match_id).single();
 
   logger.info(`Event logged: ${data.event_type} match ${parsed.data.match_id} by ${req.user.email}`);
   res.status(201).json({ event: data, match: matchScore });
@@ -194,6 +154,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 
 // ─── DELETE /api/match-events/:id ─────────────────────────────
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (!z.string().uuid().safeParse(req.params.id).success) return res.status(400).json({ error: 'Invalid event.' });
+  const { data: event } = await supabaseAdmin.from('match_events').select('match_id').eq('id', req.params.id).maybeSingle();
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
   const { error } = await supabaseAdmin
     .from('match_events')
     .delete()
@@ -201,11 +164,13 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
   if (error) {
     logger.error(`Delete event failed: ${error.message}`);
+    if (error.code === '23514') return res.status(400).json({ error: 'Reopen the match before removing events.' });
     return res.status(500).json({ error: 'Failed to delete event' });
   }
 
   logger.info(`Event deleted: ${req.params.id} by ${req.user.email}`);
-  res.json({ success: true });
+  const { data: match } = await supabaseAdmin.from('matches').select('id, home_score, away_score').eq('id', event.match_id).single();
+  res.json({ success: true, match });
 });
 
 export default router;

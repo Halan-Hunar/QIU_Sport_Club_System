@@ -52,7 +52,7 @@ export const useEventStore = create((set, get) => ({
         return null;
       }
       set((s) => ({
-        events: [...s.events, data.event],
+        events: [...s.events.filter((e) => e.id !== data.event.id), data.event],
         saving: false,
       }));
 
@@ -82,6 +82,8 @@ export const useEventStore = create((set, get) => ({
         set({ error: data.error || 'Failed to delete event', saving: false });
         return false;
       }
+      const data = await res.json();
+      if (data.match) useMatchStore.getState().setScore(data.match.id, data.match);
       set((s) => ({
         events: s.events.filter((e) => e.id !== eventId),
         saving: false,

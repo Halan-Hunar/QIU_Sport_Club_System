@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { createDisplayLogin } from '../utils/displayLogin.js';
-import { supabase, supabaseAdmin } from '../utils/supabase.js';
+import { supabaseAdmin } from '../utils/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
+router.use((_req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); });
 
 // A request-scoped auth client prevents one admin session becoming shared state.
 const createAuth = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
@@ -49,11 +50,11 @@ router.post('/logout', requireAuth, async (req, res) => {
   const token = req.headers.authorization.split(' ')[1];
 
   // Sign out using the user's token
-  const { error } = await supabase.auth.admin?.signOut(token)
-    ?? await supabase.auth.signOut();
+  const { error } = await supabaseAdmin.auth.admin.signOut(token, 'local');
 
   if (error) {
     logger.warn(`Logout error: ${error.message}`);
+    return res.status(503).json({ error: 'Session revocation failed. Please retry.' });
   }
 
   logger.info(`Logout: ${req.user.email}`);

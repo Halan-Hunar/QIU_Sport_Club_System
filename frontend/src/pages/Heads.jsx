@@ -1,3 +1,4 @@
+import { useTrackView } from '../components/AnalyticsTracker';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { headsRequest } from '../lib/news';
@@ -8,6 +9,7 @@ export default function Heads({ manage = false }) {
   const { id } = useParams();
   const user = useAuthStore((s) => s.user);
   const [data, setData] = useState(null);
+  useTrackView(!manage && id && data?.article?.id === id ? `/club/heads/${id}` : null);
   const [error, setError] = useState('');
   const [direction, setDirection] = useState('desc');
   const [role, setRole] = useState('all');

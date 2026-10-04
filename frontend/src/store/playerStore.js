@@ -29,7 +29,7 @@ export const usePlayerStore = create((set, get) => ({
       if (teamId)     params.set('team_id', teamId);
       if (sport)      params.set('sport', sport);
       const url = `${API}/api/players${params.toString() ? `?${params}` : ''}`;
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const data = await res.json();
       if (!res.ok) {
         set({ error: data.error || 'Failed to load players', loading: false });

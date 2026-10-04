@@ -143,7 +143,7 @@ export async function generateSingleElim(tournamentId, registrations, opts = {})
       .from('matches')
       .insert(rows)
       .select('id');
-    if (error) return { error: error.message };
+    if (error) { logger.error(`Bracket database operation failed: ${error.message}`); return { error: 'Could not create bracket. Please try again.' }; }
     insertedByRound[r] = data.map((d) => d.id);
   }
 
@@ -159,7 +159,7 @@ export async function generateSingleElim(tournamentId, registrations, opts = {})
         .from('matches')
         .update(upd)
         .eq('id', nextMatchId);
-      if (error) return { error: error.message };
+      if (error) { logger.error(`Bracket database operation failed: ${error.message}`); return { error: 'Could not create bracket. Please try again.' }; }
     }
   }
 
@@ -189,7 +189,7 @@ async function generateRoundRobin(tournamentId, registrations, opts = {}) {
     });
   });
   const { error } = await supabaseAdmin.from('matches').insert(rows);
-  if (error) return { error: error.message };
+  if (error) { logger.error(`Bracket database operation failed: ${error.message}`); return { error: 'Could not create bracket. Please try again.' }; }
   return { ok: true };
 }
 
@@ -242,7 +242,7 @@ async function generateGroupStage(tournamentId, registrations) {
         .update({ group_name: g.name })
         .eq('tournament_id', tournamentId)
         .eq('team_id', reg.team_id);
-      if (error) return { error: error.message };
+      if (error) { logger.error(`Bracket database operation failed: ${error.message}`); return { error: 'Could not create bracket. Please try again.' }; }
     }
   }
   const rows = [];
@@ -268,7 +268,7 @@ async function generateGroupStage(tournamentId, registrations) {
     return { error: 'Group schedule produced no matches.' };
   }
   const { error } = await supabaseAdmin.from('matches').insert(rows);
-  if (error) return { error: error.message };
+  if (error) { logger.error(`Bracket database operation failed: ${error.message}`); return { error: 'Could not create bracket. Please try again.' }; }
   return { ok: true, groupCount: groups.length };
 }
 
@@ -351,7 +351,7 @@ router.get('/standings', async (req, res) => {
 // ─── POST /api/matches/generate ───────────────────────────────
 router.post('/generate', requireAuth, requireAdmin, async (req, res) => {
   const { tournament_id } = req.body ?? {};
-  if (!tournament_id) {
+  if (!z.string().uuid().safeParse(tournament_id).success) {
     return res.status(400).json({ error: 'tournament_id is required' });
   }
 
@@ -385,15 +385,11 @@ router.post('/generate', requireAuth, requireAdmin, async (req, res) => {
     registrations = data ?? [];
   }
 
-  // Wipe existing matches first.
-  const { error: delErr } = await supabaseAdmin
-    .from('matches')
-    .delete()
-    .eq('tournament_id', tournament_id);
-  if (delErr) {
-    logger.error(`Wipe matches failed: ${delErr.message}`);
-    return res.status(500).json({ error: 'Failed to reset existing matches' });
-  }
+  // Never erase match history as a side effect of bracket generation.
+  const { count: existingCount, error: existingError } = await supabaseAdmin.from('matches')
+    .select('id', { count: 'exact', head: true }).eq('tournament_id', tournament_id);
+  if (existingError) return res.status(500).json({ error: 'Could not check existing matches.' });
+  if (existingCount) return res.status(409).json({ error: 'This tournament already has fixtures. Existing match history cannot be replaced by generating another bracket.' });
 
   const opts = { kind: isIndividual ? 'player' : 'team' };
   let result;
@@ -433,7 +429,7 @@ router.post('/generate', requireAuth, requireAdmin, async (req, res) => {
 // Promote top finishers from a completed group stage into single-elim.
 router.post('/generate-knockout', requireAuth, requireAdmin, async (req, res) => {
   const { tournament_id, advance_per_group = 2 } = req.body ?? {};
-  if (!tournament_id) {
+  if (!z.string().uuid().safeParse(tournament_id).success) {
     return res.status(400).json({ error: 'tournament_id is required' });
   }
 
@@ -482,11 +478,11 @@ router.post('/generate-knockout', requireAuth, requireAdmin, async (req, res) =>
     return res.status(400).json({ error: 'Not enough advancers for a knockout stage.' });
   }
 
-  await supabaseAdmin
-    .from('matches')
-    .delete()
-    .eq('tournament_id', tournament_id)
-    .not('round', 'like', 'Group %');
+  if (!Number.isInteger(advance_per_group) || advance_per_group < 1 || advance_per_group > 8) return res.status(400).json({ error: 'Choose between 1 and 8 advancing teams per group.' });
+  const { count: knockoutCount, error: knockoutError } = await supabaseAdmin.from('matches')
+    .select('id', { count: 'exact', head: true }).eq('tournament_id', tournament_id).not('round', 'like', 'Group %');
+  if (knockoutError) return res.status(500).json({ error: 'Could not check knockout fixtures.' });
+  if (knockoutCount) return res.status(409).json({ error: 'Knockout fixtures already exist. Match history cannot be replaced.' });
 
   const result = await generateSingleElim(tournament_id, advancers, { kind: 'team' });
   if (result.error) {
